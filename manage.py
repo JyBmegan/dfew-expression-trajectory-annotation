@@ -776,7 +776,11 @@ def command_demo(_args) -> None:
     for clip_id, label in rows:
         values = [0] * 7; values[label - 1] = 8; values[label % 7] = 2
         votes.append([*values, clip_id, label])
-    pd.DataFrame(votes, columns=["1happy","2sad","3neutral","4angry","5surprise","6disgust","7fear","order","label"]).to_excel(ROOT / "demo_data" / "annotation.xlsx", index=False)
+    annotation_path = ROOT / "demo_data" / "annotation.xlsx"
+    # Keep the tracked synthetic fixture stable across repeated launcher runs.
+    # Delete it explicitly when a fresh workbook is desired.
+    if not annotation_path.exists():
+        pd.DataFrame(votes, columns=["1happy","2sad","3neutral","4angry","5surprise","6disgust","7fear","order","label"]).to_excel(annotation_path, index=False)
     config = """[paths]
 frames = "demo_data/frames"
 annotation_xlsx = "demo_data/annotation.xlsx"
