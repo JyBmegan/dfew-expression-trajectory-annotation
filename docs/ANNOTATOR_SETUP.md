@@ -6,6 +6,19 @@ The code repository and synthetic demo can be shared publicly. The coordinator s
 2. authorized access to `clip_224x224_16f.zip` and its password;
 3. the annotator code printed in `ANNOTATOR_README.txt`.
 
+The public clone and private data are separate. A typical annotator folder is:
+
+```text
+annotation_work/
+├── trajectory_sampling_study/       # cloned from GitHub
+├── local_data/
+│   └── study.sqlite                  # private bundle copied here
+└── dfew_private/
+    └── clip_224x224_16f.zip         # authorized archive, not committed
+```
+
+The archive may remain elsewhere on the computer. Set its absolute path in `config/project.toml`; there is no requirement to copy the dataset into the repository.
+
 ## First launch
 
 Install Python 3.11 or 3.12. Put the private database at `local_data/study.sqlite`. Copy `config/annotator.example.toml` to `config/project.toml`, set the local archive path and password, and then use the launcher for the operating system:

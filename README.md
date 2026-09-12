@@ -48,6 +48,26 @@ Copy `config/project.example.toml` to `config/project.toml`. Supply local paths 
 
 The local configuration is ignored by Git. The archive password is kept only there.
 
+The repository and DFEW data can live side by side, but they do not need to be in the same directory. A convenient coordinator layout is:
+
+```text
+/your/workspace/
+├── trajectory_sampling_study/       # GitHub clone
+└── dfew_private/                    # local only; never commit this folder
+    ├── clip_224x224_16f.zip         # official 16-frame archive
+    ├── full_length_archives/        # optional original-length archives
+    ├── train_set_1.csv
+    ├── test_set_1.csv
+    ├── annotation.xlsx              # the ten-rater DFEW spreadsheet
+    └── checkpoints/
+        ├── alexnet.pth
+        └── resnet18.pth
+```
+
+You can instead point `config/project.toml` at the DFEW files wherever they already are; absolute paths are supported. The app accepts either the encrypted `clip_224x224_16f.zip` or an extracted directory with folders such as `00001/1.jpg` through `00001/16.jpg`. Do not copy DFEW images, passwords, private databases, or checkpoints into the Git clone.
+
+For annotation only, an annotator needs the Git clone, the private `study.sqlite` bundle supplied by the coordinator, and access to the authorized 16-frame archive. The CSV files, ten-rater spreadsheet, full-length archives, and checkpoints are coordinator-side inputs and are not required on an annotator's computer.
+
 ## Prepare stimulus variables and the master study
 
 Recover original face-frame counts, compute DFEW vote clarity, and run the resumable CPU stimulus audit:
