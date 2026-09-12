@@ -66,6 +66,28 @@ The repository and DFEW data can live side by side, but they do not need to be i
 
 You can instead point `config/project.toml` at the DFEW files wherever they already are; absolute paths are supported. The app accepts either the encrypted `clip_224x224_16f.zip` or an extracted directory with folders such as `00001/1.jpg` through `00001/16.jpg`. Do not copy DFEW images, passwords, private databases, or checkpoints into the Git clone.
 
+### One-command setup
+
+For the least manual work, put the private files under `local_data/dfew/` using the names in the tree above, then run:
+
+```bash
+python scripts/setup_local_config.py
+```
+
+The script checks the required files, asks for the archive password without echoing it, and writes the ignored `config/project.toml`. If your DFEW files already live elsewhere, keep them there and pass that folder instead:
+
+```bash
+python scripts/setup_local_config.py --dfew-root "/path/to/your/dfew_private"
+```
+
+The command also accepts `--archive`, `--annotation`, `--train-csv`, `--test-csv`, `--alexnet`, and `--resnet18` when those files are stored in different locations. After setup, the coordinator can initialize or open the study with:
+
+```bash
+python manage.py init-db
+python manage.py prepare-study --config config/project.toml
+python manage.py run --config config/project.toml
+```
+
 For annotation only, an annotator needs the Git clone, the private `study.sqlite` bundle supplied by the coordinator, and access to the authorized 16-frame archive. The CSV files, ten-rater spreadsheet, full-length archives, and checkpoints are coordinator-side inputs and are not required on an annotator's computer.
 
 ## Prepare stimulus variables and the master study

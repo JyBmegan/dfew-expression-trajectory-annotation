@@ -19,6 +19,8 @@ annotation_work/
 
 The archive may remain elsewhere on the computer. Set its absolute path in `config/project.toml`; there is no requirement to copy the dataset into the repository.
 
+For a coordinator setup, the repository includes `scripts/setup_local_config.py`, which checks a private DFEW folder and generates the ignored configuration automatically. Annotators should use the private configuration and database supplied by the coordinator rather than running the coordinator setup.
+
 ## First launch
 
 Install Python 3.11 or 3.12. Put the private database at `local_data/study.sqlite`. Copy `config/annotator.example.toml` to `config/project.toml`, set the local archive path and password, and then use the launcher for the operating system:
