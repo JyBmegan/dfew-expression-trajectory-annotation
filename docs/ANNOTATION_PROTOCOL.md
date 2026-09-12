@@ -1,35 +1,31 @@
-# Annotation protocol
+# 标注协议
 
-## Target of judgment
+## 判断对象
 
-Rate only the face shown in the same 16 frames received by the models. Do not infer emotion from dialogue, scene context, identity, or an assumed neutral-to-expression progression.
+只评价模型实际接收的 16 帧人脸画面。不要根据对白、场景、身份、数据集标签，或对表情变化方向的假设进行判断。
 
-## Scale anchors
+## 强度标准
 
-- 0: no visible non-neutral expression, or the face cannot be evaluated.
-- 1: a very weak cue is visible.
-- 2: weak but repeatably visible.
-- 3: moderate.
-- 4: clearly expressed.
-- 5: strong.
-- 6: very strong and visually unambiguous.
+- 0：没有可见的非中性表情，或无法评价面部。
+- 1：非常微弱但可以看到的线索。
+- 2：较弱但可以重复判断。
+- 3：中等强度。
+- 4：清晰可见。
+- 5：强。
+- 6：非常强且视觉上明确。
 
-`Mixed` means that more than one expression is visibly present. `Unclear` means that the face is visible but a category cannot be judged reliably. `Face not visible` is reserved for frames that cannot support a facial judgment.
+“混合”表示多个表情同时可见；“无法判断”表示面部可见但无法可靠确定类别；“无法看清面部”仅用于无法评价面部的画面。中性和无法看清面部的强度均为 0。
 
-Neutral and `Face not visible` use intensity 0. The category retains the distinction between a visible neutral face and a frame that cannot be judged. For `Mixed` or `Unclear`, intensity records the overall strength of the visible non-neutral facial change even when one expression category cannot be isolated.
+## 单帧任务
 
-## Single-frame block
+只根据当前画面选择可见类别和强度，不猜测同一视频其他位置的内容。重复任务之间已经安排了足够的任务间隔。请先完成单帧部分，再开始连续序列部分。
 
-Judge each frame without guessing what occurs elsewhere in its clip. The task order separates repeated views of the same clip by at least 50 intervening tasks. Complete this block before continuous-sequence ratings so sequence context does not enter isolated judgments.
+## 连续序列任务
 
-## Continuous-sequence block
+先完整观看一次循环视频，选择整个序列中的主要可见表情，再逐位置记录该表情从第 1 帧到第 16 帧的强度。曲线可以上升、下降、保持稳定、包含多个峰值，或从强表情开始，不要强行套用“中性到表情”的模式。
 
-Watch the full loop once, choose the main visible expression, then trace the strength of that same expression at all 16 positions. For `Mixed` or `Unclear`, trace overall visible non-neutral expression strength. A valid curve may rise, fall, remain stable, contain multiple peaks, or begin strongly. Onset, apex, offset, peak count, and duration are computed later from the curve and are never requested as duplicate judgments.
+如果选择“混合”或“无法判断”，请记录总体可见的非中性面部变化强度。遮挡、持续说话、镜头变化和主体切换请按页面选项勾选。
 
-## Calibration
+## 校准
 
-All three annotators first rate the same private calibration set independently. The coordinator reviews category disagreements and scale use after the completed calibration set and clarifies the written anchors before the main tasks begin. Main-study clips are not discussed between annotators.
-
-## Quality and scheduling
-
-Use short sessions with breaks. The platform records active item time so the coordinator can adjust scheduling from observed pace. The scientific coverage remains fixed: one rating per isolated test frame with planned repeats, and two independent continuous curves for every test and training-alignment clip.
+三位成员先独立完成校准任务。协调者在三人都完成后讨论类别使用和强度标准；正式任务中不要与其他标注者讨论具体片段。

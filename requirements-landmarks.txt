@@ -1,2 +1,0 @@
--r requirements-analysis.txt
-mediapipe>=0.10

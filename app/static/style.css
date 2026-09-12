@@ -58,6 +58,7 @@ legend { font-size: 1rem; font-weight: 760; margin-bottom: 12px; }
 .primary:disabled { opacity: .55; cursor: progress; }
 .submit-rating { width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; }
 .error { color: #b43d35; background: #fff0ee; padding: 10px 12px; border-radius: 8px; }
+.success { color: #16796e; background: var(--teal-soft); padding: 12px 14px; border-radius: 8px; }
 .hidden { display: none; }
 .player-panel { padding: 20px; position: sticky; top: 84px; }
 .sequence-stage { min-height: auto; padding: 15px; position: relative; box-shadow: none; border-radius: 13px; background: #e9eff3; }

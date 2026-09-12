@@ -1,49 +1,41 @@
-# Annotator setup
+# 标注者启动说明
 
-The code repository and synthetic demo can be shared publicly. The coordinator sends each annotator three private items separately:
+## 你会收到什么
 
-1. that annotator's `study.sqlite` file;
-2. authorized access to `clip_224x224_16f.zip` and its password;
-3. the annotator code printed in `ANNOTATOR_README.txt`.
+协调者会单独提供：
 
-The public clone and private data are separate. A typical annotator folder is:
+1. 标注者自己的 `study.sqlite` 私有数据库；
+2. DFEW 16 帧压缩包及授权访问方式；
+3. 你的标注代码（正式任务使用 `R01` 或 `R02`，裁决任务使用 `R03`）。
 
-```text
-annotation_work/
-├── trajectory_sampling_study/       # cloned from GitHub
-├── local_data/
-│   └── study.sqlite                  # private bundle copied here
-└── dfew_private/
-    └── clip_224x224_16f.zip         # authorized archive, not committed
-```
+公开 GitHub 仓库不包含 DFEW 图像、数据库或密码。
 
-The archive may remain elsewhere on the computer. Set its absolute path in `config/project.toml`; there is no requirement to copy the dataset into the repository.
+## 第一次启动
 
-For a coordinator setup, the repository includes `scripts/setup_local_config.py`, which checks a private DFEW folder and generates the ignored configuration automatically. Annotators should use the private configuration and database supplied by the coordinator rather than running the coordinator setup.
+安装 Python 3.11 或 3.12，将私有数据库放到仓库的 `local_data/study.sqlite`，复制 `config/annotator.example.toml` 为 `config/project.toml`，填入本机压缩包路径和密码，然后：
 
-## First launch
+- macOS：双击 `scripts/start_mac.command`；
+- Windows：双击 `scripts/start_windows.bat`。
 
-Install Python 3.11 or 3.12. Put the private database at `local_data/study.sqlite`. Copy `config/annotator.example.toml` to `config/project.toml`, set the local archive path and password, and then use the launcher for the operating system:
+浏览器会打开本机页面。输入协调者提供的代码。正式队列开始前会先显示校准任务。
 
-- macOS: double-click `scripts/start_mac.command`;
-- Windows: double-click `scripts/start_windows.bat`.
+## 标注过程中
 
-The browser address is local to the annotator's computer. Sign in with the supplied code. The first 56 items are the shared calibration set; the 28 single frames appear before the 28 sequences.
+- 可以关闭浏览器或电脑，已完成答案和未提交草稿都会保留。
+- 重新登录后会回到第一个未完成任务。
+- 不要修改正在使用的数据库文件名。
+- 正式任务中不要与其他标注者讨论具体片段。
 
-## Work sessions
+## 完成标志
 
-- Finish calibration and wait for the coordinator's scale discussion before beginning the main queue.
-- Complete the isolated-frame block before the continuous-sequence block.
-- Use short sessions and take breaks. Closing the browser does not erase progress.
-- Do not rename the database while the app is open.
-- Do not discuss main-study clips with another annotator.
+进入“进度”页面，看到所有任务进度为 100%，并且首页不再显示待完成任务，即表示浏览器端已完成。之后仍需导出结果交给协调者。
 
-## Return results
+## 交回文件
 
-Close the browser window and the launcher terminal, then run:
+关闭浏览器后，在仓库目录运行（将代码替换为你的实际代码）：
 
 ```bash
 python manage.py export --annotator R01 --output exports/R01
 ```
 
-Replace `R01` with the assigned code. Return the resulting export folder to the coordinator. The export contains ratings and task identifiers, not DFEW images.
+将整个 `exports/R01/` 文件夹交给协调者。不要交回 `config/project.toml`，因为其中可能包含压缩包密码，也不要交回 DFEW 图像。

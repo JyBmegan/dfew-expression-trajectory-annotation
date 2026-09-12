@@ -1,38 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Sequence trajectory rating{% endblock %}
+{% block title %}序列轨迹标注{% endblock %}
 {% block content %}
 <section class="task-shell" data-assignment="{{ assignment.assignment_uuid }}" data-task-type="clip" data-clip="{{ assignment.clip_id }}">
   <div class="task-header">
-    <div><span class="eyebrow">16-frame sequence</span><h1>Trace the main visible expression</h1></div>
+    <div><span class="eyebrow">16 帧序列</span><h1>标出主要可见表情的变化</h1></div>
     <div class="progress-copy">{{ progress.complete or 0 }} / {{ progress.total }}</div>
   </div>
   <div class="clip-workspace">
     <div class="player-panel">
       <div class="image-stage sequence-stage">
-        <img id="sequence-frame" src="{{ url_for('web.media', clip_id=assignment.clip_id, frame_index=1) }}" alt="Sequence frame 1" draggable="false">
+        <img id="sequence-frame" src="{{ url_for('web.media', clip_id=assignment.clip_id, frame_index=1) }}" alt="序列第 1 帧" draggable="false">
         <span class="frame-chip" id="frame-chip">1 / 16</span>
       </div>
       <div class="player-controls">
-        <button type="button" class="icon-button" id="previous-frame" aria-label="Previous frame">←</button>
-        <button type="button" class="primary compact" id="play-pause">Pause</button>
-        <button type="button" class="icon-button" id="next-frame" aria-label="Next frame">→</button>
-        <label class="speed-control">Speed
-          <select id="playback-speed"><option value="360">Slow</option><option value="220" selected>Normal</option><option value="120">Fast</option></select>
+        <button type="button" class="icon-button" id="previous-frame" aria-label="上一帧">←</button>
+        <button type="button" class="primary compact" id="play-pause">暂停</button>
+        <button type="button" class="icon-button" id="next-frame" aria-label="下一帧">→</button>
+        <label class="speed-control">播放速度
+          <select id="playback-speed"><option value="360">慢</option><option value="220" selected>正常</option><option value="120">快</option></select>
         </label>
       </div>
-      <p class="player-help">Pause at any point, then use the arrows or select a position below.</p>
+      <p class="player-help">可随时暂停，然后使用箭头或下方的位置条选择帧。</p>
     </div>
     <form class="rating-card sequence-form" id="rating-form">
       <fieldset class="category-grid compact-grid">
-        <legend>Main visible expression across the sequence</legend>
+        <legend>整个序列中的主要可见表情</legend>
         {% for category in categories %}
-          <label><input type="radio" name="dominant_category" value="{{ category }}"><span>{{ category }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
+          <label><input type="radio" name="dominant_category" value="{{ category }}"><span>{{ category_labels[category] }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
         {% endfor %}
       </fieldset>
-      <p class="shortcut-help">Keys: Space play/pause · ←/→ position · ↑/↓ strength · 1–7/M/U/X category</p>
+      <p class="shortcut-help">快捷键：空格播放/暂停 · ←/→ 选择位置 · ↑/↓ 调整强度 · 1–7/M/U/X 选择类别</p>
       <fieldset class="trajectory-field">
-        <legend>Expression strength at each position</legend>
-        <p>0 means no visible expression or neutral; 6 means the main expression is very strong.</p>
+        <legend>每个位置的表情强度</legend>
+        <p>0 表示没有可见表情或为中性；6 表示主要表情非常明显。</p>
         <div class="trajectory-grid">
           {% for index in range(1,17) %}
           <label class="trajectory-cell" data-frame="{{ index }}">
@@ -44,14 +44,14 @@
         </div>
       </fieldset>
       <fieldset class="flags-field">
-        <legend>Visible sequence properties</legend>
-        <label><input type="checkbox" name="occlusion"> Obvious face occlusion</label>
-        <label><input type="checkbox" name="speaking"> Speaking or sustained mouth movement</label>
-        <label><input type="checkbox" name="abrupt_change"> Abrupt crop or shot change</label>
-        <label><input type="checkbox" name="subject_switch"> Visible subject switch</label>
+        <legend>序列中的可见情况</legend>
+        <label><input type="checkbox" name="occlusion"> 明显遮挡面部</label>
+        <label><input type="checkbox" name="speaking"> 说话或持续嘴部运动</label>
+        <label><input type="checkbox" name="abrupt_change"> 突然裁剪或镜头变化</label>
+        <label><input type="checkbox" name="subject_switch"> 可见主体切换</label>
       </fieldset>
       <p class="error hidden" id="form-error" role="alert"></p>
-      <button class="primary submit-rating" type="submit">Save and continue <span aria-hidden="true">→</span></button>
+      <button class="primary submit-rating" type="submit">保存并继续 <span aria-hidden="true">→</span></button>
     </form>
   </div>
   <script type="application/json" id="draft-data">{{ draft|safe }}</script>

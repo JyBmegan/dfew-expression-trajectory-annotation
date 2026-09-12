@@ -80,6 +80,8 @@ resnet18_checkpoint = "{q(resnet18)}"
 [study]
 fold = 1
 annotators = ["R01", "R02", "R03"]
+independent_annotators = ["R01", "R02"]
+adjudicator = "R03"
 frame_second_rating_fraction = 0.10
 frame_hidden_repeat_fraction = 0.02
 frame_minimum_clip_gap = 50

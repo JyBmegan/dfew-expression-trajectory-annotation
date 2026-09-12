@@ -15,7 +15,7 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
-from analysis.common import trajectory_descriptors
+from .trajectory import trajectory_descriptors
 
 
 EMOTIONS = ["Happiness", "Sadness", "Neutral", "Anger", "Surprise", "Disgust", "Fear"]
@@ -120,7 +120,10 @@ class AssignmentItem:
     clip_id: int
 
 
-def _schedule_with_gap(items: list[AssignmentItem], gap: int, seed: int) -> list[AssignmentItem]:
+def _schedule_with_gap(
+    items: list[AssignmentItem], gap: int, seed: int,
+    similarity_keys: dict[int, str] | None = None,
+) -> list[AssignmentItem]:
     by_clip: dict[int, deque[AssignmentItem]] = defaultdict(deque)
     rng = random.Random(seed)
     rng.shuffle(items)
@@ -130,6 +133,7 @@ def _schedule_with_gap(items: list[AssignmentItem], gap: int, seed: int) -> list
     heapq.heapify(heap)
     cooldown: deque[tuple[int, float, int]] = deque()
     output: list[AssignmentItem] = []
+    recent_similarity: deque[str] = deque(maxlen=max(1, gap + 1))
 
     while heap or cooldown:
         while cooldown and cooldown[0][0] <= len(output):
@@ -137,8 +141,25 @@ def _schedule_with_gap(items: list[AssignmentItem], gap: int, seed: int) -> list
             heapq.heappush(heap, (-len(by_clip[clip_id]), tie, clip_id))
         if not heap:
             raise ValueError(f"Unable to schedule frame tasks with a {gap}-task clip gap")
-        _, _, clip_id = heapq.heappop(heap)
+        candidates = []
+        chosen = None
+        while heap:
+            candidate = heapq.heappop(heap)
+            candidates.append(candidate)
+            clip_id_candidate = candidate[2]
+            key = similarity_keys.get(clip_id_candidate) if similarity_keys else None
+            if key is None or key not in recent_similarity:
+                chosen = candidate
+                break
+        if chosen is None:
+            chosen = candidates[0]
+        for candidate in candidates:
+            if candidate != chosen:
+                heapq.heappush(heap, candidate)
+        _, _, clip_id = chosen
         output.append(by_clip[clip_id].popleft())
+        if similarity_keys and similarity_keys.get(clip_id):
+            recent_similarity.append(similarity_keys[clip_id])
         if by_clip[clip_id]:
             cooldown.append((len(output) + gap, rng.random(), clip_id))
     return output
@@ -174,6 +195,7 @@ def prepare_study(
     frame_second_fraction: float,
     hidden_repeat_fraction: float,
     minimum_gap: int,
+    stimulus_features: pd.DataFrame | None = None,
 ) -> dict[str, int]:
     if len(annotators) != 3:
         raise ValueError("This study design requires exactly three annotator codes")
@@ -187,6 +209,9 @@ def prepare_study(
 
     task_rows: list[tuple] = []
     assignment_items: dict[str, list[AssignmentItem]] = {code: [] for code in annotators}
+    if len(annotators) != 3:
+        raise ValueError("Use two independent annotators followed by one adjudicator: R01, R02, R03")
+    raters = annotators[:2]
     rng = np.random.default_rng(20260912)
 
     frame_targets = [(int(row.clip_id), int(row.label), frame) for row in test.itertuples() for frame in range(1, 17)]
@@ -199,14 +224,14 @@ def prepare_study(
     for index, (clip_id, label, frame_index) in enumerate(frame_targets):
         base_task = stable_uuid("frame", "test", clip_id, frame_index, "primary")
         stratum = (label, frame_index)
-        primary = annotators[(primary_counts[stratum] + label + frame_index) % 3]
+        primary = raters[(primary_counts[stratum] + label + frame_index) % 2]
         primary_counts[stratum] += 1
         task_rows.append((base_task, "frame", "test", clip_id, frame_index, None, "none"))
         assignment = stable_uuid("assignment", base_task, primary, "primary")
         assignment_items[primary].append(AssignmentItem(assignment, base_task, primary, "primary", clip_id))
 
         if index in second_indices:
-            eligible = [code for code in annotators if code != primary]
+            eligible = [code for code in raters if code != primary]
             second = min(
                 eligible,
                 key=lambda code: (second_counts[(label, frame_index, code)], annotators.index(code)),
@@ -223,14 +248,14 @@ def prepare_study(
             assignment = stable_uuid("assignment", repeat_task, primary, "hidden_repeat")
             assignment_items[primary].append(AssignmentItem(assignment, repeat_task, primary, "hidden_repeat", clip_id))
 
-    clip_pairs = [(annotators[0], annotators[1]), (annotators[0], annotators[2]), (annotators[1], annotators[2])]
+    clip_pairs = [(raters[0], raters[1])]
     for split, frame in [("test", test), ("train_alignment", train_alignment)]:
         ordered = frame.sort_values(["label", "clip_id"]).reset_index(drop=True)
         for label, group in ordered.groupby("label", sort=True):
             for within_label_index, row in enumerate(group.itertuples()):
                 task_uuid = stable_uuid("clip", split, row.clip_id)
                 task_rows.append((task_uuid, "clip", split, int(row.clip_id), None, None, "none"))
-                pair = clip_pairs[(within_label_index + int(label)) % len(clip_pairs)]
+                pair = clip_pairs[0]
                 for role_index, code in enumerate(pair):
                     assignment_uuid = stable_uuid("assignment", task_uuid, code, f"clip{role_index}")
                     assignment_items[code].append(AssignmentItem(
@@ -246,7 +271,16 @@ def prepare_study(
         frames = [item for item in assignment_items[code] if item.task_uuid in frame_task_ids]
         frame_assignment_ids = {item.assignment_uuid for item in frames}
         clips = [item for item in assignment_items[code] if item.assignment_uuid not in frame_assignment_ids]
-        scheduled_frames = _schedule_with_gap(frames, minimum_gap, seed=9100 + annotator_index)
+        similarity_keys = {}
+        if stimulus_features is not None and {"clip_id", "clip_fingerprint"}.issubset(stimulus_features.columns):
+            similarity_keys = {
+                int(row.clip_id): str(row.clip_fingerprint)
+                for row in stimulus_features[["clip_id", "clip_fingerprint"]].dropna().itertuples()
+            }
+        scheduled_frames = _schedule_with_gap(
+            frames, minimum_gap, seed=9100 + annotator_index,
+            similarity_keys=similarity_keys,
+        )
         random.Random(9200 + annotator_index).shuffle(clips)
         queue = scheduled_frames + clips
         connection.executemany(
@@ -262,6 +296,8 @@ def prepare_study(
         "frame_second_fraction": str(frame_second_fraction),
         "hidden_repeat_fraction": str(hidden_repeat_fraction),
         "minimum_clip_gap": str(minimum_gap),
+        "independent_annotators": ",".join(raters),
+        "adjudicator": annotators[2],
     }
     connection.executemany("INSERT INTO study_meta(key, value) VALUES (?, ?)", meta.items())
     connection.execute("PRAGMA optimize")

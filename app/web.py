@@ -27,6 +27,16 @@ CATEGORIES = [
     "Happiness", "Sadness", "Neutral", "Anger", "Surprise", "Disgust", "Fear",
     "Mixed", "Unclear", "Face not visible",
 ]
+CATEGORY_LABELS = {
+    "Happiness": "高兴", "Sadness": "悲伤", "Neutral": "中性", "Anger": "愤怒",
+    "Surprise": "惊讶", "Disgust": "厌恶", "Fear": "恐惧", "Mixed": "混合",
+    "Unclear": "无法判断", "Face not visible": "无法看清面部",
+}
+
+
+@bp.app_context_processor
+def inject_labels():
+    return {"category_labels": CATEGORY_LABELS}
 
 
 def require_login(view):
@@ -62,7 +72,7 @@ def login():
             session.clear()
             session["annotator"] = row["code"]
             return redirect(url_for("web.index"))
-        error = "Access code not recognized. Check the code supplied by the study coordinator."
+        error = "访问码无效，请检查协调者提供的代码。"
     return render_template("login.html", error=error)
 
 
@@ -144,11 +154,11 @@ def save_rating(assignment_uuid: str):
         category = payload.get("visible_category")
         intensity = int(payload.get("intensity", -1))
         if category not in CATEGORIES or not 0 <= intensity <= 6:
-            return jsonify(error="Choose a visible category and intensity from 0 to 6."), 400
+            return jsonify(error="请选择可见表情类别，并将强度设为 0–6。"), 400
         if category in {"Neutral", "Face not visible"} and intensity != 0:
-            return jsonify(error="Neutral and face-not-visible frames use intensity 0."), 400
+            return jsonify(error="中性和无法看清面部的画面，强度必须为 0。"), 400
         if category not in {"Neutral", "Unclear", "Face not visible"} and intensity == 0:
-            return jsonify(error="A visibly present expression uses intensity 1 to 6."), 400
+            return jsonify(error="可见表情的强度应为 1–6。"), 400
         db.execute(
             "INSERT OR REPLACE INTO frame_ratings(assignment_uuid, visible_category, intensity) VALUES (?,?,?)",
             (assignment_uuid, category, intensity),
@@ -160,11 +170,11 @@ def save_rating(assignment_uuid: str):
         except (TypeError, ValueError):
             intensities = []
         if category not in CATEGORIES or len(intensities) != 16 or any(not 0 <= value <= 6 for value in intensities):
-            return jsonify(error="Choose a dominant category and rate all 16 positions from 0 to 6."), 400
+            return jsonify(error="请选择主要表情，并完成 16 个位置的强度评分（0–6）。"), 400
         if category in {"Neutral", "Face not visible"} and any(intensities):
-            return jsonify(error="Neutral and face-not-visible sequences use a zero intensity curve."), 400
+            return jsonify(error="中性和无法看清面部的序列，16 个位置的强度都必须为 0。"), 400
         if category not in {"Neutral", "Unclear", "Face not visible"} and not any(intensities):
-            return jsonify(error="A visibly present main expression needs intensity above 0 in at least one position."), 400
+            return jsonify(error="可见的主要表情至少需要一个位置的强度高于 0。"), 400
         flags = [int(bool(payload.get(name))) for name in ["occlusion", "speaking", "abrupt_change", "subject_switch"]]
         db.execute(
             """
@@ -240,4 +250,5 @@ def dashboard():
         """,
         (session["annotator"],),
     ).fetchall()
-    return render_template("dashboard.html", rows=rows)
+    all_complete = bool(rows) and all((row["complete"] or 0) == row["total"] for row in rows)
+    return render_template("dashboard.html", rows=rows, all_complete=all_complete)

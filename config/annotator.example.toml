@@ -1,5 +1,5 @@
 [paths]
-# Use forward slashes on both macOS and Windows.
+# macOS 和 Windows 都可以使用正斜杠路径。
 frames_16_archive = "path/to/authorized/clip_224x224_16f.zip"
 frames_archive_password = ""
 

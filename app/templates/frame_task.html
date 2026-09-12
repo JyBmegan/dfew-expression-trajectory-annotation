@@ -1,31 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Single frame rating{% endblock %}
+{% block title %}单帧标注{% endblock %}
 {% block content %}
 <section class="task-shell" data-assignment="{{ assignment.assignment_uuid }}" data-task-type="frame">
   <div class="task-header">
-    <div><span class="eyebrow">Single frame</span><h1>What expression is visibly present?</h1></div>
+    <div><span class="eyebrow">单帧</span><h1>当前画面中可见的表情是什么？</h1></div>
     <div class="progress-copy">{{ progress.complete or 0 }} / {{ progress.total }}</div>
   </div>
   <div class="frame-layout">
     <div class="image-stage">
-      <img src="{{ url_for('web.media', clip_id=assignment.clip_id, frame_index=assignment.frame_index) }}" alt="Face frame to rate" draggable="false">
+      <img src="{{ url_for('web.media', clip_id=assignment.clip_id, frame_index=assignment.frame_index) }}" alt="待标注的人脸画面" draggable="false">
     </div>
     <form class="rating-card" id="rating-form">
       <fieldset class="category-grid">
-        <legend>Visible category</legend>
+        <legend>可见表情类别</legend>
         {% for category in categories %}
-          <label><input type="radio" name="visible_category" value="{{ category }}"><span>{{ category }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
+          <label><input type="radio" name="visible_category" value="{{ category }}"><span>{{ category_labels[category] }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
         {% endfor %}
       </fieldset>
-      <p class="shortcut-help">Keys: 1–7 category · M mixed · U unclear · X face not visible · ←/→ intensity · Enter save</p>
+      <p class="shortcut-help">快捷键：1–7 选择类别 · M 混合 · U 无法判断 · X 无法看清面部 · ←/→ 调整强度 · Enter 保存</p>
       <fieldset class="intensity-field">
-        <legend>Visible expression intensity</legend>
-        <div class="scale-ends"><span>0 · none / neutral</span><output id="intensity-output">0</output><span>6 · very strong</span></div>
+        <legend>可见表情强度</legend>
+        <div class="scale-ends"><span>0 · 无表情 / 中性</span><output id="intensity-output">0</output><span>6 · 非常明显</span></div>
         <input type="range" name="intensity" min="0" max="6" step="1" value="0" aria-label="Expression intensity">
       </fieldset>
       <p class="error hidden" id="form-error" role="alert"></p>
-      <button class="primary submit-rating" type="submit">Save and continue <span aria-hidden="true">→</span></button>
+      <button class="primary submit-rating" type="submit">保存并继续 <span aria-hidden="true">→</span></button>
     </form>
   </div>
+  <script type="application/json" id="draft-data">{{ draft|safe }}</script>
 </section>
 {% endblock %}

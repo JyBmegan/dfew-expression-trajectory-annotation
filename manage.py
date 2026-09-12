@@ -29,8 +29,7 @@ from app.study import (
     stable_uuid,
     third_annotator,
 )
-from analysis.common import trajectory_descriptors
-from analysis.label_clarity import compute as compute_label_clarity
+from app.trajectory import trajectory_descriptors
 
 
 ROOT = Path(__file__).resolve().parent
@@ -76,6 +75,27 @@ def write_csv(path: Path, rows: list[dict], columns: list[str]) -> None:
         writer.writerows(rows)
 
 
+def compute_label_clarity(annotation_path: Path) -> pd.DataFrame:
+    source = pd.read_excel(annotation_path)
+    required = ["1happy", "2sad", "3neutral", "4angry", "5surprise", "6disgust", "7fear", "order", "label"]
+    missing = set(required) - set(source.columns)
+    if missing:
+        raise ValueError(f"DFEW annotation table is missing {sorted(missing)}")
+    votes = source[required[:7]].to_numpy(dtype=float)
+    if (votes < 0).any() or not np.allclose(votes.sum(axis=1), 10):
+        raise ValueError("Each DFEW annotation row must contain ten non-negative votes")
+    proportions = votes / votes.sum(axis=1, keepdims=True)
+    safe = np.where(proportions > 0, proportions, 1)
+    ordered = np.sort(votes, axis=1)
+    return pd.DataFrame({
+        "clip_id": source["order"].astype(int), "dfew_label": source["label"].astype(int),
+        "vote_max": votes.max(axis=1), "vote_margin": ordered[:, -1] - ordered[:, -2],
+        "vote_entropy": -(proportions * np.log(safe)).sum(axis=1) / np.log(7),
+        "neutral_votes": votes[:, 2],
+        **{f"votes_{index + 1}": votes[:, index] for index in range(7)},
+    })
+
+
 def command_init(args) -> None:
     init_database(args.database)
     print(f"Initialized {Path(args.database).resolve()}")
@@ -101,7 +121,7 @@ def command_prepare(args) -> None:
         if missing_ids:
             raise ValueError(
                 f"Stimulus audit is incomplete: {len(missing_ids)} study clips are missing. "
-                "Resume analysis.stimulus_audit before creating the master database."
+                "Resume the local stimulus-feature audit before creating the master database."
             )
         duplicated = stimulus.clip_id.astype(int).duplicated().sum()
         if duplicated:
@@ -172,6 +192,7 @@ def command_prepare(args) -> None:
             float(study.get("frame_second_rating_fraction", 0.10)),
             float(study.get("frame_hidden_repeat_fraction", 0.02)),
             int(study.get("frame_minimum_clip_gap", 50)),
+            stimulus_features=stimulus,
         )
         connection.commit()
     output = Path(args.selection_output)

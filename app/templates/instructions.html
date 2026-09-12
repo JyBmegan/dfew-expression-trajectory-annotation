@@ -1,37 +1,37 @@
 {% extends "base.html" %}
-{% block title %}Rating instructions{% endblock %}
+{% block title %}标注说明{% endblock %}
 {% block content %}
 <article class="instructions-card">
-  <span class="eyebrow">Rating guide</span>
-  <h1>Judge what is visible in the face</h1>
-  <p class="lead">Use facial appearance only. Do not infer the scene, identity, dialogue, dataset label, or what probably happened before or after the shown material.</p>
+  <span class="eyebrow">标注指南</span>
+  <h1>只根据画面中的面部表现进行判断</h1>
+  <p class="lead">只看面部外观。不要根据场景、身份、对白、数据集标签，或画面前后可能发生的事情进行推断。</p>
 
   <section>
-    <h2>Single frames</h2>
-    <p>Select the expression visibly present in that image, then rate its strength from 0 to 6. Use <strong>Mixed</strong> when two expressions are both visibly present, <strong>Unclear</strong> when the face is visible but no category can be judged reliably, and <strong>Face not visible</strong> when the face cannot be evaluated. Neutral and Face not visible use strength 0.</p>
+    <h2>单帧任务</h2>
+    <p>选择画面中可见的表情，再将强度评为 0–6。两种表情同时明显出现时选择“混合”；面部可见但无法可靠判断类别时选择“无法判断”；无法评价面部时选择“无法看清面部”。“中性”和“无法看清面部”的强度均为 0。</p>
   </section>
 
   <section>
-    <h2>Sixteen-frame sequences</h2>
-    <p>Watch the sequence at least once before rating. Choose the main visible expression across the sequence. Then trace that same expression from position 1 to 16: 0 means absent or neutral appearance; 6 means very strong. Pause and step through the frames whenever needed.</p>
-    <p>If you choose Mixed or Unclear, trace the overall strength of the visible non-neutral facial expression, even though one category cannot be isolated.</p>
-    <p>The curve may rise, fall, stay level, contain more than one peak, or start with a strong expression. Do not force it into a neutral-to-expression pattern.</p>
+    <h2>16 帧序列任务</h2>
+    <p>标注前至少完整观看一遍。选择整个序列中的主要可见表情，然后从第 1 到第 16 个位置记录同一表情的强度：0 表示没有可见表情或为中性，6 表示非常明显。需要时可以暂停并逐帧查看。</p>
+    <p>如果选择“混合”或“无法判断”，请记录可见的非中性面部变化总体强度，即使无法确定单一类别。</p>
+    <p>曲线可以上升、下降、保持稳定、出现多个峰值，也可以从强表情开始。不要强行套用“中性到表情”的变化模式。</p>
   </section>
 
   <section>
-    <h2>Sequence properties</h2>
+    <h2>序列中的可见情况</h2>
     <dl class="definition-list">
-      <div><dt>Obvious face occlusion</dt><dd>A substantial part of the face is hidden in at least one position.</dd></div>
-      <div><dt>Speaking or sustained mouth movement</dt><dd>Mouth movement continues across several positions and may coexist with the expression.</dd></div>
-      <div><dt>Abrupt crop or shot change</dt><dd>The crop, viewpoint, or image content changes suddenly.</dd></div>
-      <div><dt>Visible subject switch</dt><dd>The displayed face changes to another person.</dd></div>
+      <div><dt>明显遮挡面部</dt><dd>至少一个位置中，面部较大区域被遮挡。</dd></div>
+      <div><dt>说话或持续嘴部运动</dt><dd>多个位置持续出现嘴部运动，可能与表情同时存在。</dd></div>
+      <div><dt>突然裁剪或镜头变化</dt><dd>裁剪、视角或图像内容突然改变。</dd></div>
+      <div><dt>可见主体切换</dt><dd>画面中的面部切换为另一个人。</dd></div>
     </dl>
   </section>
 
   <section>
-    <h2>Calibration</h2>
-    <p>Complete the coordinator’s calibration set before the main queue. Discuss category use and scale anchors only after all three independent calibration ratings are complete. During the main study, do not discuss individual clips with another rater.</p>
+    <h2>校准任务</h2>
+    <p>请先完成协调者提供的校准任务，再开始正式任务。三位标注者都完成独立校准后，再讨论类别使用和强度标准。正式标注期间，请不要与其他标注者讨论具体片段。</p>
   </section>
-  <a class="button-link primary" href="{{ url_for('web.index') }}">Return to ratings</a>
+  <a class="button-link primary" href="{{ url_for('web.index') }}">返回标注</a>
 </article>
 {% endblock %}

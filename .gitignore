@@ -5,6 +5,12 @@ __pycache__/
 .venv/
 .sites-runtime/
 .pytest_cache/
+analysis/
+requirements-analysis.txt
+requirements-landmarks.txt
+docs/ANALYSIS_MAP.md
+docs/STATUS.md
+tests/test_study.py
 local_data/**
 !local_data/.gitkeep
 config/project.toml

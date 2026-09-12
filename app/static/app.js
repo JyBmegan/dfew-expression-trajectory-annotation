@@ -46,7 +46,7 @@
         body: JSON.stringify(payload),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "The rating could not be saved.");
+      if (!response.ok) throw new Error(result.error || "保存失败，请重试。");
       window.location.assign(result.next);
     } catch (error) {
       button.disabled = false;
@@ -57,17 +57,38 @@
   if (taskType === "frame") {
     const slider = form.elements.intensity;
     const output = document.querySelector("#intensity-output");
+    let frameDraftTimer = null;
+    const saveFrameDraft = () => {
+      clearTimeout(frameDraftTimer);
+      frameDraftTimer = setTimeout(() => {
+        const data = new FormData(form);
+        fetch(`/api/draft/${assignment}`, {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({visible_category: data.get("visible_category"), intensity: Number(slider.value)}),
+        });
+      }, 300);
+    };
+    try {
+      const draft = JSON.parse(document.querySelector("#draft-data").textContent || "{}");
+      if (draft.visible_category) chooseCategory("visible_category", draft.visible_category);
+      if (Number.isInteger(Number(draft.intensity))) {
+        slider.value = Math.max(0, Math.min(6, Number(draft.intensity)));
+        output.value = slider.value;
+      }
+    } catch (_) { /* Ignore malformed drafts; submitted ratings remain authoritative. */ }
     slider.addEventListener("input", () => { output.value = slider.value; });
+    slider.addEventListener("input", saveFrameDraft);
     form.querySelectorAll('[name="visible_category"]').forEach(radio => radio.addEventListener("change", () => {
       if (radio.checked && (radio.value === "Neutral" || radio.value === "Face not visible")) {
         slider.value = 0;
         output.value = 0;
       }
+      saveFrameDraft();
     }));
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       const category = new FormData(form).get("visible_category");
-      if (!category) return showError("Choose the visible category before continuing.");
+      if (!category) return showError("请先选择可见表情类别。");
       submit({visible_category: category, intensity: Number(slider.value)});
     });
     window.addEventListener("keydown", (event) => {
@@ -117,7 +138,7 @@
 
   const setPlaying = (value) => {
     playing = value;
-    playButton.textContent = playing ? "Pause" : "Play";
+    playButton.textContent = playing ? "暂停" : "播放";
     schedule();
   };
 
@@ -207,7 +228,7 @@
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const payload = collect();
-    if (!payload.dominant_category) return showError("Choose the main visible expression before continuing.");
+    if (!payload.dominant_category) return showError("请先选择整个序列中的主要可见表情。");
     submit(payload);
   });
   renderFrame(0);
