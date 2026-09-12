@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Rating instructions{% endblock %}
+{% block content %}
+<article class="instructions-card">
+  <span class="eyebrow">Rating guide</span>
+  <h1>Judge what is visible in the face</h1>
+  <p class="lead">Use facial appearance only. Do not infer the scene, identity, dialogue, dataset label, or what probably happened before or after the shown material.</p>
+
+  <section>
+    <h2>Single frames</h2>
+    <p>Select the expression visibly present in that image, then rate its strength from 0 to 6. Use <strong>Mixed</strong> when two expressions are both visibly present, <strong>Unclear</strong> when the face is visible but no category can be judged reliably, and <strong>Face not visible</strong> when the face cannot be evaluated. Neutral and Face not visible use strength 0.</p>
+  </section>
+
+  <section>
+    <h2>Sixteen-frame sequences</h2>
+    <p>Watch the sequence at least once before rating. Choose the main visible expression across the sequence. Then trace that same expression from position 1 to 16: 0 means absent or neutral appearance; 6 means very strong. Pause and step through the frames whenever needed.</p>
+    <p>If you choose Mixed or Unclear, trace the overall strength of the visible non-neutral facial expression, even though one category cannot be isolated.</p>
+    <p>The curve may rise, fall, stay level, contain more than one peak, or start with a strong expression. Do not force it into a neutral-to-expression pattern.</p>
+  </section>
+
+  <section>
+    <h2>Sequence properties</h2>
+    <dl class="definition-list">
+      <div><dt>Obvious face occlusion</dt><dd>A substantial part of the face is hidden in at least one position.</dd></div>
+      <div><dt>Speaking or sustained mouth movement</dt><dd>Mouth movement continues across several positions and may coexist with the expression.</dd></div>
+      <div><dt>Abrupt crop or shot change</dt><dd>The crop, viewpoint, or image content changes suddenly.</dd></div>
+      <div><dt>Visible subject switch</dt><dd>The displayed face changes to another person.</dd></div>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Calibration</h2>
+    <p>Complete the coordinator’s calibration set before the main queue. Discuss category use and scale anchors only after all three independent calibration ratings are complete. During the main study, do not discuss individual clips with another rater.</p>
+  </section>
+  <a class="button-link primary" href="{{ url_for('web.index') }}">Return to ratings</a>
+</article>
+{% endblock %}

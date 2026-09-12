@@ -1,0 +1,17 @@
+[paths]
+frames = "demo_data/frames"
+annotation_xlsx = "demo_data/annotation.xlsx"
+train_csv = "demo_data/train.csv"
+test_csv = "demo_data/test.csv"
+
+[study]
+annotators = ["R01", "R02", "R03"]
+frame_second_rating_fraction = 0.10
+frame_hidden_repeat_fraction = 0.02
+frame_minimum_clip_gap = 2
+training_per_non_disgust_class = 380
+
+[server]
+host = "127.0.0.1"
+port = 5050
+secret_key = "demo-only-secret"

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}Expression trajectory rating{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23263755'/%3E%3Cpath d='M5 22 C10 11 14 24 27 8' fill='none' stroke='%234fc3b1' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{{ url_for('web.index') }}">Expression trajectory rating</a>
+    {% if session.get('annotator') %}
+      <nav>
+        <a href="{{ url_for('web.instructions') }}">Instructions</a>
+        <a href="{{ url_for('web.dashboard') }}">Progress</a>
+        <span class="rater-code">{{ session.get('annotator') }}</span>
+        <form method="post" action="{{ url_for('web.logout') }}"><button class="link-button">Sign out</button></form>
+      </nav>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Single frame rating{% endblock %}
+{% block content %}
+<section class="task-shell" data-assignment="{{ assignment.assignment_uuid }}" data-task-type="frame">
+  <div class="task-header">
+    <div><span class="eyebrow">Single frame</span><h1>What expression is visibly present?</h1></div>
+    <div class="progress-copy">{{ progress.complete or 0 }} / {{ progress.total }}</div>
+  </div>
+  <div class="frame-layout">
+    <div class="image-stage">
+      <img src="{{ url_for('web.media', clip_id=assignment.clip_id, frame_index=assignment.frame_index) }}" alt="Face frame to rate" draggable="false">
+    </div>
+    <form class="rating-card" id="rating-form">
+      <fieldset class="category-grid">
+        <legend>Visible category</legend>
+        {% for category in categories %}
+          <label><input type="radio" name="visible_category" value="{{ category }}"><span>{{ category }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
+        {% endfor %}
+      </fieldset>
+      <p class="shortcut-help">Keys: 1–7 category · M mixed · U unclear · X face not visible · ←/→ intensity · Enter save</p>
+      <fieldset class="intensity-field">
+        <legend>Visible expression intensity</legend>
+        <div class="scale-ends"><span>0 · none / neutral</span><output id="intensity-output">0</output><span>6 · very strong</span></div>
+        <input type="range" name="intensity" min="0" max="6" step="1" value="0" aria-label="Expression intensity">
+      </fieldset>
+      <p class="error hidden" id="form-error" role="alert"></p>
+      <button class="primary submit-rating" type="submit">Save and continue <span aria-hidden="true">→</span></button>
+    </form>
+  </div>
+</section>
+{% endblock %}

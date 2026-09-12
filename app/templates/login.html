@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Expression trajectory rating{% endblock %}
+{% block content %}
+<section class="login-card">
+  <div class="login-mark" aria-hidden="true">16</div>
+  <h1>Continue your ratings</h1>
+  <p>Enter the access code supplied by the study coordinator.</p>
+  <form method="post" class="login-form">
+    <label for="code">Access code</label>
+    <input id="code" name="code" autocomplete="off" autofocus required>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <button class="primary" type="submit">Open tasks</button>
+  </form>
+</section>
+{% endblock %}
+

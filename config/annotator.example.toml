@@ -1,0 +1,9 @@
+[paths]
+# Use forward slashes on both macOS and Windows.
+frames_16_archive = "path/to/authorized/clip_224x224_16f.zip"
+frames_archive_password = ""
+
+[server]
+host = "127.0.0.1"
+port = 5050
+secret_key = "replace-with-a-local-random-string"
