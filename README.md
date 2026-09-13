@@ -1,36 +1,22 @@
 # DFEW 表情轨迹标注平台
 
-这是一套在自己电脑上运行的中文标注页面。你不需要编程，也不需要理解数据库。按照本页从上到下操作即可。
+你的工作分为两种：判断一张图片中的可见表情；观看同一视频抽取出的 16 张连续图片，并记录主要表情的强度变化。
 
-你的工作分为两种：判断一张图片中的可见表情；观看同一视频抽取出的 16 张连续图片，并记录主要表情的强度变化。页面不会显示 DFEW 标签、模型结果或另一位标注者的答案。
+## 你需要准备的三个东西
 
-## 你需要收到三个东西
-
-1. 本 GitHub 仓库；
+1. 本 GitHub 仓库 （clone本仓库的操作看下面第一次安装）；
 2. Google Drive 中的 `clip_224x224_16f.zip`；
-3. 负责人单独发给你的 `给R01的文件.zip` 或 `给R02的文件.zip`。
+3. Google Drive 中的 `给R01的文件.zip` 或 `给R02的文件.zip`，**并解压**。（根据自己的编号选择下载）
 
-DFEW 图片下载：[负责人将在这里粘贴不受限的 Google Drive 链接](GOOGLE_DRIVE_LINK_TO_BE_ADDED)
+[第2、3项 DFEW 图片下载](https://drive.google.com/drive/folders/1mRRRCAfaJg3haLbcooIyiJgfZV1VfSpE?usp=sharing)
 
-`clip_224x224_16f.zip` 不是视频压缩包。它内部是按视频编号整理的 JPG 图片：
-
-```text
-clip_224x224_16f/
-├── 00001/
-│   ├── 1.jpg
-│   ├── 2.jpg
-│   └── ... 直到 16.jpg
-├── 00002/
-└── ...
-```
-
-页面会按任务中的视频编号和帧位置精确读取图片。单帧任务只显示指定的一个 JPG；序列任务按 `1.jpg` 到 `16.jpg` 播放成静音动画。请保持压缩包原名，不要解压，也不要调整内部文件。
+**请保持压缩包原名，不要解压`clip_224x224_16f.zip`，也不要调整内部文件。**
 
 ## 第一次安装
 
 ### macOS
 
-1. 从 [Python 官方网站](https://www.python.org/downloads/macos/) 安装 Python。
+1. 从 [Python 官方网站](https://www.python.org/downloads/macos/) 安装 Python（如果还没有）。
 2. 打开“终端”应用。
 3. 逐行复制并运行下面三行：
 
@@ -44,7 +30,7 @@ cd dfew-expression-trajectory-annotation
 
 ### Windows
 
-1. 从 [Python 官方网站](https://www.python.org/downloads/) 安装 Python；安装时勾选 `Add Python to PATH`。
+1. 从 [Python 官方网站](https://www.python.org/downloads/) 安装 Python；安装时勾选 `Add Python to PATH`（如果还没有）。
 2. 从 [Git 官方网站](https://git-scm.com/downloads/win) 安装 Git。
 3. 打开 PowerShell，逐行运行：
 
@@ -62,27 +48,36 @@ cd dfew-expression-trajectory-annotation
 
 ## 放置图片和个人任务包
 
-打开刚才下载的 `dfew-expression-trajectory-annotation` 文件夹。
+打开刚才下载的 `dfew-expression-trajectory-annotation` 文件夹（就是clone的当前repository）。
 
-1. 在其中依次打开 `local_data` 和 `dfew`；如果 `dfew` 不存在，就新建这个文件夹。
-2. 把 Google Drive 下载的 `clip_224x224_16f.zip` 放进去。
-3. 把负责人发给你的个人文件 ZIP 解压到仓库最外层；如果系统询问是否合并 `local_data` 和 `config` 文件夹，选择“合并”或“是”。
+1. 在其中依次打开 `local_data` 和 `dfew`；如果 `dfew` 不存在，就新建这个文件夹（`dfew-expression-trajectory-annotation/local_data/dfew/`)。
+2. 从 Google Drive 下载你自己的个人任务包，例如 给R01的文件.zip。
+* 不要把这个 ZIP 原文件直接放进仓库。将 ZIP 解压到仓库文件夹本身，也就是 `dfew-expression-trajectory-annotation`这个文件夹下。
+* 如果系统询问是否合并 `config` 或 `local_data` 文件夹，请选择“合并”或“是”，不要删除整个原文件夹。
+* 个人任务包中的内容包括：
+1) config/project.toml
+2) local_data/study.sqlite
+3) local_data/practice.sqlite
+4) 你的账号与放置说明.txt
+3. 把 Google Drive 下载的 `clip_224x224_16f.zip` 放到 `dfew-expression-trajectory-annotation/local_data/dfew/`（不要解压）。
 
-完成后只需核对下面四项：
 
-```text
+**完成后请核对结构**：
+
+```
 dfew-expression-trajectory-annotation/
+├── README.md
+├── app/
 ├── config/
-│   └── project.toml
+│   └── project.toml              # 来自个人任务包
 ├── local_data/
-│   ├── study.sqlite
-│   ├── practice.sqlite
+│   ├── study.sqlite              # 来自个人任务包
+│   ├── practice.sqlite           # 来自个人任务包
 │   └── dfew/
-│       └── clip_224x224_16f.zip
+│       └── clip_224x224_16f.zip  # Google Drive 下载，保持 ZIP 状态
 └── scripts/
 ```
 
-不要把 DFEW 图片、个人任务包或标注结果上传到 GitHub。
 
 ## 先完成真实图片练习
 
@@ -100,7 +95,7 @@ dfew-expression-trajectory-annotation/
 
 - macOS：双击 `scripts/start_mac.command`
 - Windows：双击 `scripts/start_windows.bat`
-- 登录码：查看个人任务包里的 `你的账号与放置说明.txt`，只会是 `R01` 或 `R02`
+- 登录码：`R01` 或 `R02`
 
 第一次启动会自动安装所需组件，可能需要几分钟。随后浏览器会打开 `http://127.0.0.1:5050`。这个地址只访问你自己的电脑，并不会上传图片或答案。
 
@@ -118,7 +113,7 @@ dfew-expression-trajectory-annotation/
 
 ![自动保存状态在页面中的位置和三种颜色](docs/images/demo_saved_status.svg)
 
-点击“提交本题，进入下一题”后，该题才会计入完成数。已经提交的题不会再次出现。关闭浏览器、终端或电脑后，答案仍保存在 `local_data/study.sqlite`；下次启动会从第一道未完成任务继续。每次启动还会在 `backups/` 自动生成一份数据库备份。
+点击“提交本题，进入下一题”后，该题才会计入完成数。已经提交的题不会再次出现。关闭浏览器、终端或电脑后，答案仍保存在 `local_data/study.sqlite`；**下次启动会从第一道未完成任务继续**。每次启动还会在 `backups/` 自动生成一份数据库备份。
 
 正式单帧任务在创建个人任务包时已经固定乱序。程序另外强制规定：同一视频的任意两张图片之间至少插入 9 个其他任务。因此不会连续看到同一视频的两帧，也不会因为重新启动而改变顺序。
 
@@ -138,7 +133,7 @@ dfew-expression-trajectory-annotation/
 R01_annotation_results_20260912.zip
 ```
 
-请把这一个 ZIP 原样发给负责人。不要解压、不要改名，也不需要交回图片、整个仓库、`config/project.toml` 或 `backups` 文件夹。
+请提交这一个 ZIP 。不要解压、不要改名，也不需要交回图片、整个仓库、`config/project.toml` 或 `backups` 文件夹。
 
 ## 常见问题
 
@@ -165,6 +160,5 @@ local_data/dfew/clip_224x224_16f.zip
 - `local_data/study.sqlite`：正式进度与答案；
 - `local_data/practice.sqlite`：完全独立的练习答案；
 - `backups/`：每次启动时自动生成的备份；
-- 浏览器下载目录中的 `R01_...zip` 或 `R02_...zip`：最后交回负责人。
+- 浏览器下载目录中的 `R01_...zip` 或 `R02_...zip`。
 
-本平台使用 DFEW 数据集：Jiang et al., “DFEW: A Large-Scale Database for Recognizing Dynamic Facial Expressions in the Wild,” ACM Multimedia, 2020。
