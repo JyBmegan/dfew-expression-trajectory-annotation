@@ -51,14 +51,16 @@ cd dfew-expression-trajectory-annotation
 打开刚才下载的 `dfew-expression-trajectory-annotation` 文件夹（就是clone的当前repository）。
 
 1. 在其中依次打开 `local_data` 和 `dfew`；如果 `dfew` 不存在，就新建这个文件夹（`dfew-expression-trajectory-annotation/local_data/dfew/`)。
+   
 2. 从 Google Drive 下载你自己的个人任务包，例如 给R01的文件.zip。
 * 不要把这个 ZIP 原文件直接放进仓库。将 ZIP 解压到仓库文件夹本身，也就是 `dfew-expression-trajectory-annotation`这个文件夹下。
 * 如果系统询问是否合并 `config` 或 `local_data` 文件夹，请选择“合并”或“是”，不要删除整个原文件夹。
 * 个人任务包中的内容包括：
-1) config/project.toml
-2) local_data/study.sqlite
-3) local_data/practice.sqlite
-4) 你的账号与放置说明.txt
+ - config/project.toml
+ - local_data/study.sqlite
+ - local_data/practice.sqlite
+ - 你的账号与放置说明.txt
+   
 3. 把 Google Drive 下载的 `clip_224x224_16f.zip` 放到 `dfew-expression-trajectory-annotation/local_data/dfew/`（不要解压）。
 
 
