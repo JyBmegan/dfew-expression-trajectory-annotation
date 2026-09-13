@@ -5,6 +5,69 @@
   const taskType = shell.dataset.taskType;
   const form = document.querySelector("#rating-form");
   const errorBox = document.querySelector("#form-error");
+  const saveStatus = document.querySelector("#save-status");
+  const saveStatusText = document.querySelector("#save-status-text");
+  const retrySave = document.querySelector("#retry-save");
+  let pendingDraft = null;
+  let draftTimer = null;
+  let draftSaving = false;
+  let draftFailed = false;
+  let leavingAfterSubmit = false;
+
+  const setSaveStatus = (kind, message) => {
+    if (!saveStatus) return;
+    saveStatus.dataset.state = kind;
+    saveStatusText.textContent = message;
+    retrySave?.classList.toggle("hidden", kind !== "failed");
+  };
+
+  const persistDraft = async () => {
+    clearTimeout(draftTimer);
+    if (draftSaving || !pendingDraft) return;
+    const payload = pendingDraft;
+    pendingDraft = null;
+    draftSaving = true;
+    draftFailed = false;
+    setSaveStatus("saving", "正在自动保存…");
+    try {
+      const response = await fetch(`/api/draft/${assignment}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("自动保存失败");
+      await response.json();
+      const stamp = new Intl.DateTimeFormat("zh-CN", {
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+      }).format(new Date());
+      setSaveStatus("saved", `已保存到本机 · ${stamp}`);
+    } catch (_error) {
+      pendingDraft = payload;
+      draftFailed = true;
+      setSaveStatus("failed", "自动保存失败，请勿关闭页面");
+    } finally {
+      draftSaving = false;
+      if (pendingDraft && !draftFailed) {
+        draftTimer = setTimeout(persistDraft, 120);
+      }
+    }
+  };
+
+  const queueDraft = (payload, delay = 300) => {
+    pendingDraft = payload;
+    draftFailed = false;
+    setSaveStatus("dirty", "内容已改变，等待保存…");
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(persistDraft, delay);
+  };
+
+  retrySave?.addEventListener("click", persistDraft);
+  window.addEventListener("beforeunload", (event) => {
+    if (!leavingAfterSubmit && (pendingDraft || draftSaving || draftFailed)) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
   let activeMilliseconds = 0;
   let lastActivity = performance.now();
   let pageWasVisible = !document.hidden;
@@ -18,7 +81,6 @@
     window.addEventListener(name, markActivity, {passive: true});
   });
   document.addEventListener("visibilitychange", markActivity);
-  let draftTimer = null;
   const categoryKeys = {"1":"Happiness", "2":"Sadness", "3":"Neutral", "4":"Anger", "5":"Surprise", "6":"Disgust", "7":"Fear", "m":"Mixed", "u":"Unclear", "x":"Face not visible"};
   const chooseCategory = (name, category) => {
     const radio = form.querySelector(`[name="${name}"][value="${CSS.escape(category)}"]`);
@@ -37,6 +99,7 @@
     const button = form.querySelector(".submit-rating");
     button.disabled = true;
     errorBox.classList.add("hidden");
+    setSaveStatus("saving", "正在提交本题…");
     markActivity();
     payload.duration_ms = Math.round(activeMilliseconds);
     try {
@@ -47,9 +110,11 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "保存失败，请重试。");
+      leavingAfterSubmit = true;
       window.location.assign(result.next);
     } catch (error) {
       button.disabled = false;
+      setSaveStatus("failed", "提交失败，答案仍保留在当前页面");
       showError(error.message);
     }
   };
@@ -57,16 +122,12 @@
   if (taskType === "frame") {
     const slider = form.elements.intensity;
     const output = document.querySelector("#intensity-output");
-    let frameDraftTimer = null;
     const saveFrameDraft = () => {
-      clearTimeout(frameDraftTimer);
-      frameDraftTimer = setTimeout(() => {
-        const data = new FormData(form);
-        fetch(`/api/draft/${assignment}`, {
-          method: "POST", headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({visible_category: data.get("visible_category"), intensity: Number(slider.value)}),
-        });
-      }, 300);
+      const data = new FormData(form);
+      queueDraft({
+        visible_category: data.get("visible_category"),
+        intensity: Number(slider.value),
+      });
     };
     try {
       const draft = JSON.parse(document.querySelector("#draft-data").textContent || "{}");
@@ -74,6 +135,9 @@
       if (Number.isInteger(Number(draft.intensity))) {
         slider.value = Math.max(0, Math.min(6, Number(draft.intensity)));
         output.value = slider.value;
+      }
+      if (draft.visible_category || draft.intensity !== undefined) {
+        setSaveStatus("saved", "已恢复上次自动保存的内容");
       }
     } catch (_) { /* Ignore malformed drafts; submitted ratings remain authoritative. */ }
     slider.addEventListener("input", () => { output.value = slider.value; });
@@ -101,6 +165,7 @@
         const change = event.key === "ArrowRight" ? 1 : -1;
         slider.value = Math.max(0, Math.min(6, Number(slider.value) + change));
         output.value = slider.value;
+        saveFrameDraft();
       } else if (event.key === "Enter") {
         event.preventDefault();
         form.requestSubmit();
@@ -160,7 +225,7 @@
       const change = event.key === "ArrowUp" ? 1 : -1;
       slider.value = Math.max(0, Math.min(6, Number(slider.value) + change));
       cells[frame].querySelector("output").value = slider.value;
-      saveDraft();
+      saveSequenceDraft();
     }
   });
 
@@ -193,20 +258,15 @@
     }
   }));
 
-  const saveDraft = () => {
-    clearTimeout(draftTimer);
-    draftTimer = setTimeout(() => fetch(`/api/draft/${assignment}`, {
-      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(collect()),
-    }), 450);
-  };
+  const saveSequenceDraft = () => queueDraft(collect(), 400);
 
   sliders.forEach((slider, index) => slider.addEventListener("input", () => {
     cells[index].querySelector("output").value = slider.value;
     renderFrame(index);
     setPlaying(false);
-    saveDraft();
+    saveSequenceDraft();
   }));
-  form.addEventListener("change", saveDraft);
+  form.addEventListener("change", saveSequenceDraft);
 
   try {
     const draft = JSON.parse(document.querySelector("#draft-data").textContent || "{}");
@@ -223,6 +283,9 @@
     ["occlusion", "speaking", "abrupt_change", "subject_switch"].forEach(name => {
       if (draft[name]) form.elements[name].checked = true;
     });
+    if (draft.dominant_category || Array.isArray(draft.intensities)) {
+      setSaveStatus("saved", "已恢复上次自动保存的内容");
+    }
   } catch (_) { /* A malformed draft is ignored; submitted ratings remain authoritative. */ }
 
   form.addEventListener("submit", (event) => {

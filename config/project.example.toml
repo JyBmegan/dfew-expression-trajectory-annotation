@@ -2,25 +2,16 @@
 frames = "local_data/dfew/frames_16"
 frames_16_archive = "local_data/dfew/clip_224x224_16f.zip"
 frames_archive_password = ""
-full_length_archives = "local_data/dfew/full_length_archives"
-full_length_direct_archives = "local_data/dfew/full_length_archives"
-full_length_index = "artifacts/full_length_index.csv"
-stimulus_features = "artifacts/stimulus_audit/stimulus_features.csv"
-duplicate_candidates = "artifacts/duplicate_candidates.csv"
 annotation_xlsx = "local_data/dfew/annotation.xlsx"
 train_csv = "local_data/dfew/train_set_1.csv"
 test_csv = "local_data/dfew/test_set_1.csv"
-alexnet_checkpoint = "local_data/checkpoints/alexnet.pth"
-resnet18_checkpoint = "local_data/checkpoints/resnet18.pth"
 
 [study]
 fold = 1
-annotators = ["R01", "R02", "R03"]
-independent_annotators = ["R01", "R02"]
-adjudicator = "R03"
+annotators = ["R01", "R02"]
 frame_second_rating_fraction = 0.10
 frame_hidden_repeat_fraction = 0.02
-frame_minimum_clip_gap = 50
+frame_minimum_clip_gap = 9
 training_per_non_disgust_class = 380
 training_disgust_all = true
 

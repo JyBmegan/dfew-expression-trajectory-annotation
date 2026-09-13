@@ -122,7 +122,6 @@ class AssignmentItem:
 
 def _schedule_with_gap(
     items: list[AssignmentItem], gap: int, seed: int,
-    similarity_keys: dict[int, str] | None = None,
 ) -> list[AssignmentItem]:
     by_clip: dict[int, deque[AssignmentItem]] = defaultdict(deque)
     rng = random.Random(seed)
@@ -133,7 +132,6 @@ def _schedule_with_gap(
     heapq.heapify(heap)
     cooldown: deque[tuple[int, float, int]] = deque()
     output: list[AssignmentItem] = []
-    recent_similarity: deque[str] = deque(maxlen=max(1, gap + 1))
 
     while heap or cooldown:
         while cooldown and cooldown[0][0] <= len(output):
@@ -141,25 +139,9 @@ def _schedule_with_gap(
             heapq.heappush(heap, (-len(by_clip[clip_id]), tie, clip_id))
         if not heap:
             raise ValueError(f"Unable to schedule frame tasks with a {gap}-task clip gap")
-        candidates = []
-        chosen = None
-        while heap:
-            candidate = heapq.heappop(heap)
-            candidates.append(candidate)
-            clip_id_candidate = candidate[2]
-            key = similarity_keys.get(clip_id_candidate) if similarity_keys else None
-            if key is None or key not in recent_similarity:
-                chosen = candidate
-                break
-        if chosen is None:
-            chosen = candidates[0]
-        for candidate in candidates:
-            if candidate != chosen:
-                heapq.heappush(heap, candidate)
+        chosen = heapq.heappop(heap)
         _, _, clip_id = chosen
         output.append(by_clip[clip_id].popleft())
-        if similarity_keys and similarity_keys.get(clip_id):
-            recent_similarity.append(similarity_keys[clip_id])
         if by_clip[clip_id]:
             cooldown.append((len(output) + gap, rng.random(), clip_id))
     return output
@@ -197,8 +179,8 @@ def prepare_study(
     minimum_gap: int,
     stimulus_features: pd.DataFrame | None = None,
 ) -> dict[str, int]:
-    if len(annotators) != 3:
-        raise ValueError("This study design requires exactly three annotator codes")
+    if len(annotators) != 2:
+        raise ValueError("正式任务只需要两位独立标注者")
     if connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]:
         raise ValueError("Database already contains tasks; use a new database")
 
@@ -209,9 +191,7 @@ def prepare_study(
 
     task_rows: list[tuple] = []
     assignment_items: dict[str, list[AssignmentItem]] = {code: [] for code in annotators}
-    if len(annotators) != 3:
-        raise ValueError("Use two independent annotators followed by one adjudicator: R01, R02, R03")
-    raters = annotators[:2]
+    raters = annotators
     rng = np.random.default_rng(20260912)
 
     frame_targets = [(int(row.clip_id), int(row.label), frame) for row in test.itertuples() for frame in range(1, 17)]
@@ -271,15 +251,8 @@ def prepare_study(
         frames = [item for item in assignment_items[code] if item.task_uuid in frame_task_ids]
         frame_assignment_ids = {item.assignment_uuid for item in frames}
         clips = [item for item in assignment_items[code] if item.assignment_uuid not in frame_assignment_ids]
-        similarity_keys = {}
-        if stimulus_features is not None and {"clip_id", "clip_fingerprint"}.issubset(stimulus_features.columns):
-            similarity_keys = {
-                int(row.clip_id): str(row.clip_fingerprint)
-                for row in stimulus_features[["clip_id", "clip_fingerprint"]].dropna().itertuples()
-            }
         scheduled_frames = _schedule_with_gap(
             frames, minimum_gap, seed=9100 + annotator_index,
-            similarity_keys=similarity_keys,
         )
         random.Random(9200 + annotator_index).shuffle(clips)
         queue = scheduled_frames + clips
@@ -297,7 +270,6 @@ def prepare_study(
         "hidden_repeat_fraction": str(hidden_repeat_fraction),
         "minimum_clip_gap": str(minimum_gap),
         "independent_annotators": ",".join(raters),
-        "adjudicator": annotators[2],
     }
     connection.executemany("INSERT INTO study_meta(key, value) VALUES (?, ?)", meta.items())
     connection.execute("PRAGMA optimize")

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import csv
+import hashlib
 import json
+import sqlite3
+import tempfile
 import time
-from io import BytesIO
+import zipfile
+from datetime import datetime, timezone
 from functools import wraps
+from io import BytesIO, StringIO
 from pathlib import Path
 
 from flask import (
@@ -32,6 +38,34 @@ CATEGORY_LABELS = {
     "Surprise": "惊讶", "Disgust": "厌恶", "Fear": "恐惧", "Mixed": "混合",
     "Unclear": "无法判断", "Face not visible": "无法看清面部",
 }
+
+
+def _meta(db, key: str, default: str = "") -> str:
+    row = db.execute("SELECT value FROM study_meta WHERE key=?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def _progress_rows(db, code: str):
+    return db.execute(
+        """
+        SELECT t.task_type, t.split, COUNT(*) total, SUM(a.status='complete') complete
+        FROM assignments a JOIN tasks t USING(task_uuid)
+        WHERE a.annotator_code=? GROUP BY t.task_type, t.split ORDER BY t.task_type, t.split
+        """,
+        (code,),
+    ).fetchall()
+
+
+def _all_complete(rows) -> bool:
+    return bool(rows) and all((row["complete"] or 0) == row["total"] for row in rows)
+
+
+def _csv_bytes(rows, columns: list[str]) -> bytes:
+    handle = StringIO()
+    writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(rows)
+    return handle.getvalue().encode("utf-8-sig")
 
 
 @bp.app_context_processor
@@ -66,13 +100,13 @@ def _assignment_or_404(assignment_uuid: str):
 def login():
     error = None
     if request.method == "POST":
-        code = request.form.get("code", "").strip()
+        code = request.form.get("code", "").strip().upper()
         row = get_db().execute("SELECT code FROM annotators WHERE code = ? AND active = 1", (code,)).fetchone()
         if row:
             session.clear()
             session["annotator"] = row["code"]
             return redirect(url_for("web.index"))
-        error = "访问码无效，请检查协调者提供的代码。"
+        error = "访问码无效，请检查负责人提供的代码。"
     return render_template("login.html", error=error)
 
 
@@ -134,6 +168,7 @@ def task(assignment_uuid: str):
         "categories": CATEGORIES,
         "progress": progress,
         "draft": draft["payload_json"] if draft else "{}",
+        "is_practice": _meta(db, "practice_mode") == "1",
     }
     template = "frame_task.html" if assignment["task_type"] == "frame" else "clip_task.html"
     return render_template(template, **context)
@@ -209,7 +244,10 @@ def save_draft(assignment_uuid: str):
         (assignment_uuid, json.dumps(payload)),
     )
     get_db().commit()
-    return jsonify(ok=True)
+    saved = get_db().execute(
+        "SELECT updated_at FROM drafts WHERE assignment_uuid=?", (assignment_uuid,)
+    ).fetchone()
+    return jsonify(ok=True, saved_at=saved["updated_at"] if saved else None)
 
 
 @bp.get("/media/<int:clip_id>/<int:frame_index>")
@@ -242,13 +280,112 @@ def media(clip_id: int, frame_index: int):
 @bp.get("/dashboard")
 @require_login
 def dashboard():
-    rows = get_db().execute(
-        """
-        SELECT t.task_type, t.split, COUNT(*) total, SUM(a.status='complete') complete
-        FROM assignments a JOIN tasks t USING(task_uuid)
-        WHERE a.annotator_code=? GROUP BY t.task_type, t.split ORDER BY t.task_type, t.split
-        """,
-        (session["annotator"],),
-    ).fetchall()
-    all_complete = bool(rows) and all((row["complete"] or 0) == row["total"] for row in rows)
-    return render_template("dashboard.html", rows=rows, all_complete=all_complete)
+    db = get_db()
+    rows = _progress_rows(db, session["annotator"])
+    return render_template(
+        "dashboard.html",
+        rows=rows,
+        all_complete=_all_complete(rows),
+        is_practice=_meta(db, "practice_mode") == "1",
+    )
+
+
+@bp.get("/export-results")
+@require_login
+def export_results():
+    db = get_db()
+    code = session["annotator"]
+    rows = _progress_rows(db, code)
+    if _meta(db, "practice_mode") == "1":
+        abort(404)
+    if not _all_complete(rows):
+        return redirect(url_for("web.dashboard"))
+
+    assignments = [dict(row) for row in db.execute(
+        "SELECT * FROM assignments WHERE annotator_code=? ORDER BY queue_position", (code,)
+    )]
+    assignment_ids = [row["assignment_uuid"] for row in assignments]
+    tasks = [dict(row) for row in db.execute(
+        """SELECT t.* FROM tasks t JOIN assignments a USING(task_uuid)
+           WHERE a.annotator_code=? ORDER BY a.queue_position""", (code,)
+    )]
+    if assignment_ids:
+        marks = ",".join("?" for _ in assignment_ids)
+        frame_ratings = [dict(row) for row in db.execute(
+            f"SELECT * FROM frame_ratings WHERE assignment_uuid IN ({marks}) ORDER BY assignment_uuid",
+            assignment_ids,
+        )]
+        clip_ratings = [dict(row) for row in db.execute(
+            f"SELECT * FROM clip_ratings WHERE assignment_uuid IN ({marks}) ORDER BY assignment_uuid",
+            assignment_ids,
+        )]
+    else:
+        frame_ratings, clip_ratings = [], []
+
+    members = {
+        "assignments.csv": _csv_bytes(assignments, [
+            "assignment_uuid", "task_uuid", "annotator_code", "role", "queue_position",
+            "status", "started_at", "completed_at", "duration_ms",
+        ]),
+        "tasks.csv": _csv_bytes(tasks, [
+            "task_uuid", "task_type", "split", "clip_id", "frame_index",
+            "source_task_uuid", "repeat_kind", "created_at",
+        ]),
+        "frame_ratings.csv": _csv_bytes(frame_ratings, [
+            "assignment_uuid", "visible_category", "intensity", "submitted_at",
+        ]),
+        "clip_ratings.csv": _csv_bytes(clip_ratings, [
+            "assignment_uuid", "dominant_category", "intensities_json", "occlusion",
+            "speaking", "abrupt_change", "subject_switch", "submitted_at",
+        ]),
+    }
+    db.commit()
+    with tempfile.TemporaryDirectory(prefix="dfew_export_") as temporary:
+        snapshot = Path(temporary) / "study.sqlite"
+        with sqlite3.connect(current_app.config["DATABASE"]) as source, sqlite3.connect(snapshot) as target:
+            source.backup(target)
+        members["study.sqlite"] = snapshot.read_bytes()
+
+    now = datetime.now(timezone.utc)
+    manifest = {
+        "bundle_id": hashlib.sha256(
+            (code + "|" + "|".join(sorted(assignment_ids))).encode("utf-8")
+        ).hexdigest()[:20],
+        "annotator": code,
+        "design_version": _meta(db, "design_version", "unknown"),
+        "exported_at": now.isoformat(),
+        "completed_assignments": len(assignments),
+        "total_assignments": len(assignments),
+        "files": {name: hashlib.sha256(data).hexdigest() for name, data in members.items()},
+    }
+    members["manifest.json"] = json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")
+
+    archive = BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+        for name, data in members.items():
+            output.writestr(name, data)
+    archive.seek(0)
+    filename = f"{code}_annotation_results_{now.strftime('%Y%m%d')}.zip"
+    return send_file(archive, mimetype="application/zip", as_attachment=True, download_name=filename)
+
+
+@bp.post("/reset-practice")
+@require_login
+def reset_practice():
+    db = get_db()
+    if _meta(db, "practice_mode") != "1" or session["annotator"] != "TEST":
+        abort(404)
+    assignment_ids = [row[0] for row in db.execute(
+        "SELECT assignment_uuid FROM assignments WHERE annotator_code='TEST'"
+    )]
+    if assignment_ids:
+        marks = ",".join("?" for _ in assignment_ids)
+        db.execute(f"DELETE FROM drafts WHERE assignment_uuid IN ({marks})", assignment_ids)
+        db.execute(f"DELETE FROM frame_ratings WHERE assignment_uuid IN ({marks})", assignment_ids)
+        db.execute(f"DELETE FROM clip_ratings WHERE assignment_uuid IN ({marks})", assignment_ids)
+    db.execute(
+        """UPDATE assignments SET status='pending', started_at=NULL, completed_at=NULL,
+           duration_ms=NULL WHERE annotator_code='TEST'"""
+    )
+    db.commit()
+    return redirect(url_for("web.index"))

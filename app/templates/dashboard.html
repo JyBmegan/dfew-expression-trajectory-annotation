@@ -3,18 +3,28 @@
 {% block content %}
 <section class="dashboard-card">
   <span class="eyebrow">你的进度</span>
-  <h1>标注概览</h1>
-  {% if all_complete %}<p class="success" role="status">全部任务已完成。请按说明导出结果并交给协调者。</p>{% endif %}
+  <h1>{{ '练习进度' if is_practice else '标注概览' }}</h1>
+  {% if all_complete and is_practice %}<p class="success" role="status"><b>真实图片练习已完成。</b>现在可以关闭此页面，再双击“正式标注”启动文件。练习答案不会进入正式结果。</p>{% endif %}
+  {% if all_complete and not is_practice %}<p class="success" role="status"><b>全部正式任务已完成。</b>请点击下方按钮下载唯一需要交回的结果压缩包。</p>{% endif %}
   <div class="progress-list">
     {% for row in rows %}
       {% set pct = (100 * (row.complete or 0) / row.total) if row.total else 0 %}
       <div class="progress-row">
-        <div><strong>{{ '单帧' if row.task_type == 'frame' else '序列' }}</strong><span>{{ '测试集' if row.split == 'test' else '训练对齐子集' if row.split == 'train_alignment' else row.split|replace('_',' ') }}</span></div>
+        <div><strong>{{ '单帧图片' if row.task_type == 'frame' else '16 帧序列' }}</strong><span>{{ '练习任务' if row.split == 'calibration' else '正式任务' }}</span></div>
         <div class="progress-track"><i style="width: {{ pct }}%"></i></div>
         <div>{{ row.complete or 0 }} / {{ row.total }}</div>
       </div>
     {% endfor %}
   </div>
-  <a class="primary button-link" href="{{ url_for('web.index') }}">继续标注</a>
+  {% if not all_complete %}<a class="primary button-link" href="{{ url_for('web.index') }}">继续标注</a>{% endif %}
+  {% if all_complete and not is_practice %}
+    <a class="primary button-link export-button" href="{{ url_for('web.export_results') }}">下载结果压缩包</a>
+    <p class="handoff-note">下载得到 <code>{{ session.get('annotator') }}_annotation_results_日期.zip</code>。请将这一个 ZIP 原样发给负责人，不要解压、改名或另找文件。</p>
+  {% endif %}
+  {% if is_practice %}
+    <form method="post" action="{{ url_for('web.reset_practice') }}" class="reset-practice-form">
+      <button type="submit" class="secondary-button">清空练习进度，重新体验</button>
+    </form>
+  {% endif %}
 </section>
 {% endblock %}

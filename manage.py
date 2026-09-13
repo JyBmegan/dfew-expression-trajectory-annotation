@@ -5,11 +5,14 @@ import argparse
 import csv
 import hashlib
 import json
+import random
 import shutil
 import sqlite3
 import sys
 import webbrowser
+import zipfile
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 import numpy as np
@@ -61,7 +64,7 @@ def resolve_config_path(config: dict, value: str) -> Path:
 def database_backup(database: Path, output_dir: Path = ROOT / "backups") -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    destination = output_dir / f"study_{stamp}.sqlite"
+    destination = output_dir / f"{database.stem}_{stamp}.sqlite"
     with connect(database) as source, sqlite3.connect(destination) as target:
         source.backup(target)
     return destination
@@ -186,12 +189,12 @@ def command_prepare(args) -> None:
     with connect(database) as connection:
         summary = prepare_study(
             connection,
-            list(study.get("annotators", ["R01", "R02", "R03"])),
+            list(study.get("annotators", ["R01", "R02"])),
             test,
             selected,
             float(study.get("frame_second_rating_fraction", 0.10)),
             float(study.get("frame_hidden_repeat_fraction", 0.02)),
-            int(study.get("frame_minimum_clip_gap", 50)),
+            int(study.get("frame_minimum_clip_gap", 9)),
             stimulus_features=stimulus,
         )
         connection.commit()
@@ -221,11 +224,125 @@ def command_run(args) -> None:
     host = args.host or server.get("host", "127.0.0.1")
     port = args.port or int(server.get("port", 5050))
     secret = server.get("secret_key", "local-study-change-me")
+    database = Path(args.database).resolve()
+    if database.exists():
+        backup = database_backup(database)
+        print(f"已自动备份标注进度：{backup}")
     app = create_app(args.database, frames, secret, frame_password)
     if not args.no_browser:
         import threading
         threading.Timer(0.8, lambda: webbrowser.open(f"http://{host}:{port}")).start()
     app.run(host=host, port=port, debug=False)
+
+
+def command_annotator_check(args) -> None:
+    database = Path(args.database).resolve()
+    if not database.is_file():
+        raise SystemExit(f"没有找到个人任务文件：{database}")
+    config = load_config(args.config)
+    paths = config["paths"]
+    source_value = paths.get("frames_16_archive", paths.get("frames"))
+    if not source_value:
+        raise SystemExit("配置中没有 DFEW 图片压缩包路径")
+    source_path = resolve_config_path(config, source_value)
+    if not source_path.is_file() and not source_path.is_dir():
+        raise SystemExit(
+            "没有找到 DFEW 图片压缩包。请确认文件名为 "
+            "local_data/dfew/clip_224x224_16f.zip"
+        )
+    source = FrameSource(source_path, paths.get("frames_archive_password"))
+    try:
+        with connect(database) as connection:
+            codes = [row["code"] for row in connection.execute(
+                "SELECT code FROM annotators WHERE active=1 ORDER BY code"
+            )]
+            if len(codes) != 1:
+                raise SystemExit("个人任务包必须只包含一个账号，请重新向负责人索取任务包")
+            task_rows = connection.execute(
+                """SELECT DISTINCT t.clip_id, COALESCE(t.frame_index, 1) frame_index
+                   FROM tasks t JOIN assignments a USING(task_uuid)
+                   WHERE a.annotator_code=? ORDER BY t.clip_id, frame_index""",
+                (codes[0],),
+            ).fetchall()
+        missing = sorted({int(row["clip_id"]) for row in task_rows if not source.has_clip(int(row["clip_id"]))})
+        if missing:
+            preview = "、".join(f"{clip_id:05d}" for clip_id in missing[:8])
+            raise SystemExit(f"图片包缺少 {len(missing)} 个任务视频，例如：{preview}")
+        if task_rows:
+            checks = [task_rows[0], task_rows[len(task_rows) // 2], task_rows[-1]]
+            for row in checks:
+                data = source.read(int(row["clip_id"]), int(row["frame_index"]))
+                with Image.open(BytesIO(data)) as image:
+                    image.verify()
+    except RuntimeError as error:
+        raise SystemExit("压缩包密码不正确，请使用负责人提供的个人启动包") from error
+    finally:
+        source.close()
+    print(f"检查通过：账号 {codes[0]}，{len(task_rows)} 个任务图片目标均可定位。")
+    print("断点保存位置：local_data/study.sqlite（练习账号则为 local_data/practice.sqlite）")
+
+
+def command_prepare_practice(args) -> None:
+    database = Path(args.database).resolve()
+    formal_database = Path(args.formal_database).resolve()
+    if database.exists() and not args.force:
+        print(f"真实图片练习已经存在：{database}")
+        return
+    config = load_config(args.config)
+    paths = config["paths"]
+    source_value = paths.get("frames_16_archive", paths.get("frames"))
+    source = FrameSource(
+        resolve_config_path(config, source_value), paths.get("frames_archive_password")
+    )
+    try:
+        candidates = source.available_clip_ids()
+    finally:
+        source.close()
+    excluded: set[int] = set()
+    if formal_database.is_file():
+        with connect(formal_database) as connection:
+            excluded = {int(row[0]) for row in connection.execute(
+                "SELECT DISTINCT clip_id FROM tasks"
+            )}
+    candidates = [clip_id for clip_id in candidates if clip_id not in excluded]
+    if len(candidates) < 21:
+        raise SystemExit("图片包中找不到 21 个与正式任务完全分离的视频")
+    rng = random.Random(20260912)
+    chosen = rng.sample(candidates, 21)
+    if database.exists():
+        database.unlink()
+    init_database(database)
+    with connect(database) as connection:
+        connection.execute("INSERT INTO annotators(code, display_name) VALUES ('TEST','真实图片练习')")
+        task_rows, assignment_rows = [], []
+        for position, clip_id in enumerate(chosen[:14], start=1):
+            frame_index = ((position - 1) * 5) % 16 + 1
+            task_uuid = stable_uuid("practice-frame", clip_id, frame_index)
+            assignment_uuid = stable_uuid("practice-assignment", task_uuid, "TEST")
+            task_rows.append((task_uuid, "frame", "calibration", clip_id, frame_index, None, "none"))
+            assignment_rows.append((assignment_uuid, task_uuid, "TEST", "primary", position))
+        for offset, clip_id in enumerate(chosen[14:], start=15):
+            task_uuid = stable_uuid("practice-clip", clip_id)
+            assignment_uuid = stable_uuid("practice-assignment", task_uuid, "TEST")
+            task_rows.append((task_uuid, "clip", "calibration", clip_id, None, None, "none"))
+            assignment_rows.append((assignment_uuid, task_uuid, "TEST", "primary", offset))
+        connection.executemany(
+            """INSERT INTO tasks(task_uuid, task_type, split, clip_id, frame_index,
+               source_task_uuid, repeat_kind) VALUES (?,?,?,?,?,?,?)""", task_rows
+        )
+        connection.executemany(
+            """INSERT INTO assignments(assignment_uuid, task_uuid, annotator_code, role,
+               queue_position) VALUES (?,?,?,?,?)""", assignment_rows
+        )
+        connection.executemany("INSERT INTO study_meta(key,value) VALUES (?,?)", [
+            ("design_version", "practice-1"),
+            ("practice_mode", "1"),
+            ("formal_clip_overlap", "0"),
+            ("practice_frame_tasks", "14"),
+            ("practice_clip_tasks", "7"),
+        ])
+        connection.commit()
+    print(f"已创建独立真实图片练习：{database}（TEST，14 个单帧 + 7 个序列）")
 
 
 def command_status(args) -> None:
@@ -431,7 +548,8 @@ def command_make_bundle(args) -> None:
     source = Path(args.database)
     destination = Path(args.output)
     destination.mkdir(parents=True, exist_ok=True)
-    bundle_database = destination / "study.sqlite"
+    bundle_database = destination / "local_data" / "study.sqlite"
+    bundle_database.parent.mkdir(parents=True, exist_ok=True)
     with connect(source) as master, sqlite3.connect(bundle_database) as copy:
         master.backup(copy)
     master.close()
@@ -461,16 +579,42 @@ def command_make_bundle(args) -> None:
         portable.close()
     for suffix in ("-wal", "-shm"):
         bundle_database.with_name(bundle_database.name + suffix).unlink(missing_ok=True)
+    practice_database = Path(args.practice_database).resolve()
+    if practice_database.is_file():
+        shutil.copy2(practice_database, destination / "local_data" / "practice.sqlite")
+    if args.config:
+        config = load_config(args.config)
+        password = config.get("paths", {}).get("frames_archive_password", "")
+        secret = config.get("server", {}).get("secret_key", "local-study-private")
+        password_key = "frames_" + "archive_password"
+        config_dir = destination / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "project.toml").write_text(
+            "[paths]\n"
+            'frames = "local_data/dfew/frames_16"\n'
+            'frames_16_archive = "local_data/dfew/clip_224x224_16f.zip"\n'
+            f'{password_key} = "{str(password).replace(chr(34), chr(92) + chr(34))}"\n\n'
+            "[server]\n"
+            'host = "127.0.0.1"\n'
+            "port = 5050\n"
+            f'secret_key = "{str(secret).replace(chr(34), chr(92) + chr(34))}"\n',
+            encoding="utf-8",
+        )
     instructions = (
-        f"Annotator: {args.annotator}\n\n"
-        "1. Place this study.sqlite file in trajectory_sampling_study/local_data/.\n"
-        "2. Place the authorized DFEW 16-frame archive at the path configured locally.\n"
-        "3. Start the app and sign in using the annotator code above.\n"
-        f"4. Export results with: python manage.py export --annotator {args.annotator} --output exports/{args.annotator}\n"
-        "5. Return the exported folder to the study coordinator.\n"
+        f"你的正式账号：{args.annotator}\n\n"
+        "把本压缩包解压并合并到 GitHub 仓库的最外层目录。\n"
+        "不要改动其中的 local_data 和 config 文件夹名称。\n"
+        "先双击 start_test_* 完成 TEST 真实图片练习；再双击 start_* 进入正式标注。\n"
+        "全部完成后，在网页的“进度”页面点击“下载结果压缩包”。\n"
+        "只需把下载得到的一个 ZIP 文件原样交给负责人。\n"
     )
-    (destination / "ANNOTATOR_README.txt").write_text(instructions, encoding="utf-8")
-    print(f"Private bundle for {args.annotator}: {destination.resolve()} ({task_count} assignments)")
+    (destination / "你的账号与放置说明.txt").write_text(instructions, encoding="utf-8")
+    archive_path = destination.with_suffix(".zip")
+    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(destination.rglob("*")):
+            if path.is_file() and not path.name.startswith("._"):
+                archive.write(path, path.relative_to(destination))
+    print(f"已创建 {args.annotator} 个人启动包：{archive_path}（{task_count} 个任务）")
 
 
 def command_export(args) -> None:
@@ -729,7 +873,7 @@ def command_validate(args) -> None:
                    ORDER BY a.queue_position""", (code,)
             )]
             last = {}
-            minimum_gap = int(meta.get("minimum_clip_gap", 50))
+            minimum_gap = int(meta.get("minimum_clip_gap", 9))
             for position, clip_id in enumerate(clip_positions):
                 if clip_id in last and position - last[clip_id] <= minimum_gap:
                     errors.append(f"{code}: clip {clip_id} repeats within {minimum_gap} tasks")
@@ -809,7 +953,7 @@ train_csv = "demo_data/train.csv"
 test_csv = "demo_data/test.csv"
 
 [study]
-annotators = ["R01", "R02", "R03"]
+annotators = ["R01", "R02"]
 frame_second_rating_fraction = 0.10
 frame_hidden_repeat_fraction = 0.02
 frame_minimum_clip_gap = 2
@@ -834,11 +978,13 @@ def parser() -> argparse.ArgumentParser:
     select_calibration = sub.add_parser("select-calibration"); select_calibration.add_argument("--config", required=True); select_calibration.add_argument("--per-class", type=int, default=4); select_calibration.add_argument("--output", default=ROOT / "local_data" / "calibration_manifest.csv"); select_calibration.add_argument("--key-output", default=ROOT / "local_data" / "calibration_key.csv"); select_calibration.set_defaults(func=command_select_calibration)
     calibration_report = sub.add_parser("calibration-report"); calibration_report.add_argument("--database", default=DEFAULT_DATABASE); calibration_report.add_argument("--output", default=ROOT / "exports" / "calibration_report.csv"); calibration_report.set_defaults(func=command_calibration_report)
     run = sub.add_parser("run"); run.add_argument("--config"); run.add_argument("--database", default=DEFAULT_DATABASE); run.add_argument("--frames"); run.add_argument("--host"); run.add_argument("--port", type=int); run.add_argument("--no-browser", action="store_true"); run.set_defaults(func=command_run)
+    check = sub.add_parser("annotator-check"); check.add_argument("--config", required=True); check.add_argument("--database", default=DEFAULT_DATABASE); check.set_defaults(func=command_annotator_check)
+    practice = sub.add_parser("prepare-practice"); practice.add_argument("--config", required=True); practice.add_argument("--database", default=ROOT / "local_data" / "practice.sqlite"); practice.add_argument("--formal-database", default=DEFAULT_DATABASE); practice.add_argument("--force", action="store_true"); practice.set_defaults(func=command_prepare_practice)
     status = sub.add_parser("status"); status.add_argument("--database", default=DEFAULT_DATABASE); status.set_defaults(func=command_status)
     workload = sub.add_parser("workload-report"); workload.add_argument("--database", default=DEFAULT_DATABASE); workload.add_argument("--output", default=ROOT / "exports" / "workload_report.csv"); workload.set_defaults(func=command_workload)
     backup = sub.add_parser("backup"); backup.add_argument("--database", default=DEFAULT_DATABASE); backup.add_argument("--output", default=ROOT / "backups"); backup.set_defaults(func=command_backup)
     export = sub.add_parser("export"); export.add_argument("--database", default=DEFAULT_DATABASE); export.add_argument("--annotator", required=True); export.add_argument("--output", required=True); export.set_defaults(func=command_export)
-    bundle = sub.add_parser("make-annotator-bundle"); bundle.add_argument("--database", default=DEFAULT_DATABASE); bundle.add_argument("--annotator", required=True); bundle.add_argument("--output", required=True); bundle.set_defaults(func=command_make_bundle)
+    bundle = sub.add_parser("make-annotator-bundle"); bundle.add_argument("--database", default=DEFAULT_DATABASE); bundle.add_argument("--annotator", required=True); bundle.add_argument("--output", required=True); bundle.add_argument("--config"); bundle.add_argument("--practice-database", default=ROOT / "local_data" / "practice.sqlite"); bundle.set_defaults(func=command_make_bundle)
     merge = sub.add_parser("merge"); merge.add_argument("folders", nargs="+"); merge.add_argument("--database", default=DEFAULT_DATABASE); merge.set_defaults(func=command_merge)
     adjudicate = sub.add_parser("create-adjudications"); adjudicate.add_argument("--database", default=DEFAULT_DATABASE); adjudicate.set_defaults(func=command_adjudications)
     consensus = sub.add_parser("export-consensus"); consensus.add_argument("--database", default=DEFAULT_DATABASE); consensus.add_argument("--output", required=True); consensus.set_defaults(func=command_consensus)

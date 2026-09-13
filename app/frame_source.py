@@ -33,6 +33,19 @@ class FrameSource:
     def kind(self) -> str:
         return "archive" if self._archive else "directory"
 
+    def available_clip_ids(self) -> list[int]:
+        """Return clips that contain all 16 model-input frames."""
+        if self._archive:
+            candidates = {clip_id for clip_id, _frame in self._members}
+            return sorted(clip_id for clip_id in candidates if self.has_clip(clip_id))
+        candidates = []
+        for folder in self.source.iterdir():
+            if folder.is_dir() and folder.name.isdigit() and len(folder.name) == 5:
+                clip_id = int(folder.name)
+                if self.has_clip(clip_id):
+                    candidates.append(clip_id)
+        return sorted(candidates)
+
     def has_clip(self, clip_id: int) -> bool:
         if self._archive:
             return all((clip_id, frame) in self._members for frame in range(1, 17))

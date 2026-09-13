@@ -3,8 +3,17 @@
 {% block content %}
 <section class="task-shell" data-assignment="{{ assignment.assignment_uuid }}" data-task-type="frame">
   <div class="task-header">
-    <div><span class="eyebrow">单帧</span><h1>当前画面中可见的表情是什么？</h1></div>
-    <div class="progress-copy">{{ progress.complete or 0 }} / {{ progress.total }}</div>
+    <div><span class="eyebrow">{{ '真实图片练习' if is_practice else '正式任务' }} · 单帧</span><h1>当前画面中可见的表情是什么？</h1></div>
+    <div class="progress-copy">已完成 {{ progress.complete or 0 }} / 共 {{ progress.total }}</div>
+  </div>
+  <div class="task-steps" aria-label="本题操作步骤">
+    <span class="current"><b>1</b>只看当前图片</span><i></i>
+    <span><b>2</b>选择一个类别</span><i></i>
+    <span><b>3</b>调整强度并提交</span>
+  </div>
+  <div class="save-status" id="save-status" data-state="idle" role="status" aria-live="polite">
+    <span class="save-dot" aria-hidden="true"></span><span id="save-status-text">尚未修改；修改后会自动保存</span>
+    <button type="button" class="retry-save hidden" id="retry-save">重试保存</button>
   </div>
   <div class="frame-layout">
     <div class="image-stage">
@@ -12,19 +21,21 @@
     </div>
     <form class="rating-card" id="rating-form">
       <fieldset class="category-grid">
-        <legend>可见表情类别</legend>
+        <legend>① 选择当前图片里真正看得见的表情</legend>
         {% for category in categories %}
           <label><input type="radio" name="visible_category" value="{{ category }}"><span>{{ category_labels[category] }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
         {% endfor %}
       </fieldset>
+      <p class="decision-help"><b>拿不准时：</b>同时有两种明显表情选“混合”；面部可见但类别难判断选“无法判断”；面部本身看不清选“无法看清面部”。</p>
       <p class="shortcut-help">快捷键：1–7 选择类别 · M 混合 · U 无法判断 · X 无法看清面部 · ←/→ 调整强度 · Enter 保存</p>
       <fieldset class="intensity-field">
-        <legend>可见表情强度</legend>
+        <legend>② 这个表情有多明显？</legend>
         <div class="scale-ends"><span>0 · 无表情 / 中性</span><output id="intensity-output">0</output><span>6 · 非常明显</span></div>
-        <input type="range" name="intensity" min="0" max="6" step="1" value="0" aria-label="Expression intensity">
+        <input type="range" name="intensity" min="0" max="6" step="1" value="0" aria-label="表情强度">
+        <div class="scale-ticks" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
       </fieldset>
       <p class="error hidden" id="form-error" role="alert"></p>
-      <button class="primary submit-rating" type="submit">保存并继续 <span aria-hidden="true">→</span></button>
+      <button class="primary submit-rating" type="submit">③ 提交本题，进入下一题 <span aria-hidden="true">→</span></button>
     </form>
   </div>
   <script type="application/json" id="draft-data">{{ draft|safe }}</script>

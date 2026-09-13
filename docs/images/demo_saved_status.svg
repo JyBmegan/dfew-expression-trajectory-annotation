@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="330" viewBox="0 0 1180 330" role="img" aria-labelledby="title desc">
+  <title id="title">页面自动保存状态说明</title>
+  <desc id="desc">展示黄色正在保存、绿色保存成功和红色保存失败三种页面提示。</desc>
+  <rect width="1180" height="330" rx="24" fill="#f4f8fb"/>
+  <text x="54" y="54" fill="#203550" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="27" font-weight="700">认准页面上方这条保存提示</text>
+  <text x="54" y="84" fill="#66778a" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="17">每次选择或修改后，等待它变成绿色再离开页面。</text>
+
+  <g transform="translate(54 112)">
+    <rect width="1072" height="54" rx="12" fill="#fff9e8" stroke="#e1cc83"/>
+    <circle cx="29" cy="27" r="6" fill="#d9a52c"/>
+    <text x="48" y="34" fill="#7d640f" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="18">正在自动保存…</text>
+    <text x="1030" y="34" text-anchor="end" fill="#7d640f" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="16">请稍等</text>
+  </g>
+
+  <g transform="translate(54 178)">
+    <rect width="1072" height="54" rx="12" fill="#e7f7f4" stroke="#9ed9cf" stroke-width="2"/>
+    <circle cx="29" cy="27" r="6" fill="#24a998"/>
+    <text x="48" y="34" fill="#16796e" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="700">已保存到本机 · 14:32:08</text>
+    <text x="1030" y="34" text-anchor="end" fill="#16796e" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="16" font-weight="700">看到绿色，可以安全离开</text>
+  </g>
+
+  <g transform="translate(54 244)">
+    <rect width="1072" height="54" rx="12" fill="#fff0ee" stroke="#efb0aa"/>
+    <circle cx="29" cy="27" r="6" fill="#ef6d61"/>
+    <text x="48" y="34" fill="#a93831" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="18">自动保存失败，请勿关闭页面</text>
+    <rect x="920" y="10" width="128" height="34" rx="7" fill="#fff" stroke="#a93831"/>
+    <text x="984" y="33" text-anchor="middle" fill="#a93831" font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif" font-size="15" font-weight="700">重试保存</text>
+  </g>
+</svg>

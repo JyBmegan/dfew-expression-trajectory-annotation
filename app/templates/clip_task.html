@@ -3,8 +3,17 @@
 {% block content %}
 <section class="task-shell" data-assignment="{{ assignment.assignment_uuid }}" data-task-type="clip" data-clip="{{ assignment.clip_id }}">
   <div class="task-header">
-    <div><span class="eyebrow">16 帧序列</span><h1>标出主要可见表情的变化</h1></div>
-    <div class="progress-copy">{{ progress.complete or 0 }} / {{ progress.total }}</div>
+    <div><span class="eyebrow">{{ '真实图片练习' if is_practice else '正式任务' }} · 16 帧序列</span><h1>标出主要可见表情的变化</h1></div>
+    <div class="progress-copy">已完成 {{ progress.complete or 0 }} / 共 {{ progress.total }}</div>
+  </div>
+  <div class="task-steps" aria-label="本题操作步骤">
+    <span class="current"><b>1</b>完整观看一遍</span><i></i>
+    <span><b>2</b>选择主要表情</span><i></i>
+    <span><b>3</b>逐帧标强度</span>
+  </div>
+  <div class="save-status" id="save-status" data-state="idle" role="status" aria-live="polite">
+    <span class="save-dot" aria-hidden="true"></span><span id="save-status-text">尚未修改；修改后会自动保存</span>
+    <button type="button" class="retry-save hidden" id="retry-save">重试保存</button>
   </div>
   <div class="clip-workspace">
     <div class="player-panel">
@@ -20,18 +29,19 @@
           <select id="playback-speed"><option value="360">慢</option><option value="220" selected>正常</option><option value="120">快</option></select>
         </label>
       </div>
-      <p class="player-help">可随时暂停，然后使用箭头或下方的位置条选择帧。</p>
+      <p class="player-help"><b>先完整播放一次。</b>之后可暂停，用左右箭头或右侧位置条逐帧查看。</p>
     </div>
     <form class="rating-card sequence-form" id="rating-form">
       <fieldset class="category-grid compact-grid">
-        <legend>整个序列中的主要可见表情</legend>
+        <legend>① 整个序列里，哪一种表情最主要？</legend>
         {% for category in categories %}
           <label><input type="radio" name="dominant_category" value="{{ category }}"><span>{{ category_labels[category] }} <kbd>{{ loop.index if loop.index <= 7 else ('M' if category == 'Mixed' else 'U' if category == 'Unclear' else 'X') }}</kbd></span></label>
         {% endfor %}
       </fieldset>
+      <p class="decision-help"><b>判断对象始终是同一种主要表情。</b>接下来 16 个强度值都表示它在相应位置有多明显。</p>
       <p class="shortcut-help">快捷键：空格播放/暂停 · ←/→ 选择位置 · ↑/↓ 调整强度 · 1–7/M/U/X 选择类别</p>
       <fieldset class="trajectory-field">
-        <legend>每个位置的表情强度</legend>
+        <legend>② 逐帧记录主要表情的强度</legend>
         <p>0 表示没有可见表情或为中性；6 表示主要表情非常明显。</p>
         <div class="trajectory-grid">
           {% for index in range(1,17) %}
@@ -51,7 +61,7 @@
         <label><input type="checkbox" name="subject_switch"> 可见主体切换</label>
       </fieldset>
       <p class="error hidden" id="form-error" role="alert"></p>
-      <button class="primary submit-rating" type="submit">保存并继续 <span aria-hidden="true">→</span></button>
+      <button class="primary submit-rating" type="submit">③ 提交本题，进入下一题 <span aria-hidden="true">→</span></button>
     </form>
   </div>
   <script type="application/json" id="draft-data">{{ draft|safe }}</script>

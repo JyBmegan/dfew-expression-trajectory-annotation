@@ -1,9 +1,8 @@
 [paths]
-# macOS 和 Windows 都可以使用正斜杠路径。
-frames_16_archive = "path/to/authorized/clip_224x224_16f.zip"
+frames_16_archive = "local_data/dfew/clip_224x224_16f.zip"
 frames_archive_password = ""
 
 [server]
 host = "127.0.0.1"
 port = 5050
-secret_key = "replace-with-a-local-random-string"
+secret_key = "由负责人写入个人启动包"

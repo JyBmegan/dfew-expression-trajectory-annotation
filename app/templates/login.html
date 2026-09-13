@@ -4,12 +4,17 @@
 <section class="login-card">
   <div class="login-mark" aria-hidden="true">16</div>
   <h1>开始标注</h1>
-  <p>请输入研究协调者提供的访问码。</p>
+  <p>所有图片和答案只在你的电脑上读取与保存。请输入负责人提供的访问码。</p>
+  <ol class="login-steps" aria-label="标注流程">
+    <li><b>进入任务</b><span>阅读说明并完成练习</span></li>
+    <li><b>逐项标注</b><span>系统每次修改都会自动保存</span></li>
+    <li><b>交回结果</b><span>完成后下载一个结果压缩包</span></li>
+  </ol>
   <form method="post" class="login-form">
     <label for="code">访问码</label>
     <input id="code" name="code" autocomplete="off" autofocus required>
     {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
-    <button class="primary" type="submit">进入任务</button>
+    <button class="primary" type="submit">进入标注页面</button>
   </form>
 </section>
 {% endblock %}

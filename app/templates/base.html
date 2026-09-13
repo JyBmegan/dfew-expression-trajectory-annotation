@@ -13,7 +13,7 @@
     <a class="brand" href="{{ url_for('web.index') }}">表情轨迹标注</a>
     {% if session.get('annotator') %}
       <nav>
-        <a href="{{ url_for('web.instructions') }}">说明</a>
+        <a href="{{ url_for('web.instructions') }}">操作说明</a>
         <a href="{{ url_for('web.dashboard') }}">进度</a>
         <span class="rater-code">{{ session.get('annotator') }}</span>
         <form method="post" action="{{ url_for('web.logout') }}"><button class="link-button">退出</button></form>
